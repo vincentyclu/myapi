@@ -135,6 +135,7 @@ PHP_METHOD(api, run)
     //smart_str buf = {0};
     //php_json_encode(&buf, &ret, 0);
     //zval_ptr_dtor(&ret);
+
     RETURN_ZVAL(&ret, 1, 0);
     //RETURN_STR(buf.s);
 
