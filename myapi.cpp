@@ -9,15 +9,34 @@ extern "C" {
 
     #include "php.h"
     #include "ext/standard/info.h"
-    #include "php_myapi.h"
+    #include "ext/standard/php_var.h"
+    #include "ext/standard/file.h"
+    #include "ext/date/php_date.h"
+    #include "ext/standard/php_string.h"
 }
-
+#include "php_myapi.h"
 #include "api.h"
 #include "controller.h"
 #include "model.h"
 #include "myapi_config.h"
+#include "request.h"
+#include "response.h"
+#include "router.h"
+#include "validator.h"
+#include "exception.h"
+#include "filter.h"
+#include "version.h"
+#include "log.h"
 #include "MyApiTool.h"
+#include "zend_exceptions.h"
 #include <vector>
+#include <memory>
+#include "ApiEx.h"
+#include "ConfigEx.h"
+#include "LogEx.h"
+#include "FilterEx.h"
+#include "SqlParser.h"
+#include "orm.h"
 
 /* For compatibility with older PHP versions */
 #ifndef ZEND_PARSE_PARAMETERS_NONE
@@ -26,35 +45,60 @@ extern "C" {
 	ZEND_PARSE_PARAMETERS_END()
 #endif
 
+ZEND_INI_MH(abc)
+{
+    //return FAILURE;
+    //php_printf("%s", ZSTR_VAL(new_value));
+    return SUCCESS;
+}
+
+PHP_INI_BEGIN()
+	STD_PHP_INI_ENTRY("myapi.enable_error_handler",    "0",  PHP_INI_ALL, OnUpdateBool, enable_error_handler, zend_myapi_globals, myapi_globals)
+	STD_PHP_INI_ENTRY("myapi.enable_exception_handler",   "0",  PHP_INI_ALL, OnUpdateBool, enable_exception_handler, zend_myapi_globals, myapi_globals)
+	STD_PHP_INI_ENTRY("myapi.enable_multi_enviroment",   "0",  PHP_INI_ALL, OnUpdateBool, enable_multi_enviroment, zend_myapi_globals, myapi_globals)
+	STD_PHP_INI_ENTRY("myapi.default_enviroment",   "debug",  PHP_INI_ALL, OnUpdateString, default_enviroment, zend_myapi_globals, myapi_globals)
+	PHP_INI_ENTRY("myapi.test_var",     "hello", PHP_INI_ALL, abc)
+PHP_INI_END();
+
+ZEND_DECLARE_MODULE_GLOBALS(myapi);
+
 /* {{{ void myapi_test1()
  */
 PHP_FUNCTION(myapi_test1)
 {
-	ZEND_PARSE_PARAMETERS_NONE();
-
-	php_printf("The extension %s is loaded and working!\r\n", "myapi");
+    //Filter::getInstance().getFilter();
 }
 /* }}} */
 
 /* {{{ string myapi_test2( [ string $var ] )
  */
+
+ extern zend_class_entry* config_ce;
+
 PHP_FUNCTION(myapi_test2)
 {
+    zval *val1;
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+        Z_PARAM_ZVAL(val1)
+    ZEND_PARSE_PARAMETERS_END();
+
     zval ret;
-    zval function_name;
-    ZVAL_STRING(&function_name, "\\api\\controller\\MyTest::fun");
-    call_user_function(NULL, NULL, &function_name, &ret, 0, NULL);
-    zval_ptr_dtor(&function_name);
+    array_init(&ret);
 
-    if (Z_TYPE(ret) == IS_UNDEF)
-    {
-        zval_ptr_dtor(&ret);
-        return;
-    }
+    zval *v;
+    ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(val1), v)
+        add_next_index_zval(&ret, v);
+        Z_LVAL_P(v) = 100;
+    ZEND_HASH_FOREACH_END();
 
-    zval_ptr_dtor(&ret);
+    RETURN_ZVAL(&ret, 1, 1);
 }
 /* }}}*/
+
+PHP_GINIT_FUNCTION(myapi)
+{
+	//memset(myapi_globals, 0, sizeof(*myapi_globals));
+}
 
 /* {{{ PHP_RINIT_FUNCTION
  */
@@ -63,22 +107,41 @@ PHP_RINIT_FUNCTION(myapi)
 #if defined(ZTS) && defined(COMPILE_DL_MYAPI)
 	ZEND_TSRMLS_CACHE_UPDATE();
 #endif
-
 	return SUCCESS;
 }
 /* }}} */
 
+PHP_RSHUTDOWN_FUNCTION(myapi)
+{
+
+
+    return SUCCESS;
+}
+
 PHP_MINIT_FUNCTION(myapi)
 {
+    REGISTER_INI_ENTRIES();
+
     MYAPI_STARTUP(api);
     MYAPI_STARTUP(controller);
     MYAPI_STARTUP(model);
     MYAPI_STARTUP(config);
+    MYAPI_STARTUP(request);
+    MYAPI_STARTUP(response);
+    MYAPI_STARTUP(router);
+    MYAPI_STARTUP(validator);
+    MYAPI_STARTUP(exception);
+    MYAPI_STARTUP(filter);
+    MYAPI_STARTUP(version);
+    MYAPI_STARTUP(log);
+    MYAPI_STARTUP(orm);
     return SUCCESS;
 }
 
 PHP_MSHUTDOWN_FUNCTION(myapi)
 {
+    UNREGISTER_INI_ENTRIES();
+
     return SUCCESS;
 }
 
@@ -89,17 +152,21 @@ PHP_MINFO_FUNCTION(myapi)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "myapi support", "enabled");
+	php_info_print_table_row(2, "Version", PHP_MYAPI_VERSION);
 	php_info_print_table_end();
+
+	DISPLAY_INI_ENTRIES();
 }
 /* }}} */
 
 /* {{{ arginfo
  */
 ZEND_BEGIN_ARG_INFO(arginfo_myapi_test1, 0)
+    ZEND_ARG_TYPE_INFO(0, test_str, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_myapi_test2, 0)
-	ZEND_ARG_INFO(0, str)
+	//ZEND_ARG_OBJ_INFO(0, filterObj, Test, 0)
 ZEND_END_ARG_INFO()
 /* }}} */
 
@@ -121,10 +188,14 @@ zend_module_entry myapi_module_entry = {
 	PHP_MINIT(myapi),							/* PHP_MINIT - Module initialization */
 	PHP_MSHUTDOWN(myapi),							/* PHP_MSHUTDOWN - Module shutdown */
 	PHP_RINIT(myapi),			/* PHP_RINIT - Request initialization */
-	NULL,							/* PHP_RSHUTDOWN - Request shutdown */
+	PHP_RSHUTDOWN(myapi),							/* PHP_RSHUTDOWN - Request shutdown */
 	PHP_MINFO(myapi),			/* PHP_MINFO - Module info */
 	PHP_MYAPI_VERSION,		/* Version */
-	STANDARD_MODULE_PROPERTIES
+	PHP_MODULE_GLOBALS(myapi),
+	PHP_GINIT(myapi),
+	NULL,
+	NULL,
+	STANDARD_MODULE_PROPERTIES_EX
 };
 /* }}} */
 

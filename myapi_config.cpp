@@ -6,34 +6,56 @@ extern "C" {
     #include "php.h"
     #include "ext/standard/info.h"
     #include "ext/standard/php_var.h"
-    #include "php_myapi.h"
 }
-
+#include "php_myapi.h"
 #include "myapi_config.h"
 #include "MyApiTool.h"
+#include "ApiEx.h"
 #include <vector>
 #include <string>
 
 zend_class_entry* config_ce;
 
+
 PHP_METHOD(config, __construct)
 {
     zval *file_path;
+    zend_bool use_env = false;
 
-    ZEND_PARSE_PARAMETERS_START(1, 1)
+    ZEND_PARSE_PARAMETERS_START(1, 2)
         Z_PARAM_ZVAL(file_path)
+        Z_PARAM_OPTIONAL
+        Z_PARAM_BOOL(use_env)
     ZEND_PARSE_PARAMETERS_END();
 
-    std::vector<zval> v;
-    v.push_back(*file_path);
+    std::string api_path = Api::getInstance().getApiPath();
+    std::string env = Api::getInstance().getEnv();
 
-    zval ret = MyApiTool::callFunction("\\myapi\\Api::import", v);
+    if (Z_TYPE_P(file_path) != IS_STRING || api_path == "")
+    {
+        return;
+    }
 
-    ret.u1.v.type = IS_ARRAY;
+    std::string filePath;
 
-    zend_update_property(config_ce, getThis(), "data", strlen("data"), &ret);
+    if (use_env)
+    {
+        filePath = api_path + "/config/" + env + "/" + std::string(Z_STRVAL_P(file_path)) + std::string(".php");
+    }
+    else
+    {
+        filePath = api_path + "/config/" + std::string(Z_STRVAL_P(file_path)) + std::string(".php");
+    }
 
-    zval_ptr_dtor(&ret);
+    std::shared_ptr<zval> retPtr = Api::getInstance().import(filePath);
+
+    if (Z_TYPE_P(retPtr.get()) != IS_ARRAY)
+    {
+        MyApiTool::throwException("config file error", 10);
+        return;
+    }
+
+    zend_update_property(config_ce, getThis(), "data", strlen("data"), retPtr.get());
 }
 
 PHP_METHOD(config, get)
@@ -41,19 +63,38 @@ PHP_METHOD(config, get)
     zval *rv;
     zval *val = zend_read_property(config_ce, getThis(), "data", strlen("data"), 0, rv);
 
-    zend_string *key;
+    char *key;
+    size_t len;
     ZEND_PARSE_PARAMETERS_START(1, 1)
-        Z_PARAM_STR(key)
+        Z_PARAM_STRING(key, len)
     ZEND_PARSE_PARAMETERS_END();
 
-    zval *ret = zend_hash_find(Z_ARRVAL_P(val), key);
+    std::shared_ptr<zval> retPtr = MyApiTool::getZvalByHashTableEx(Z_ARRVAL_P(val), key, false);
 
-    RETURN_ZVAL(ret, 1, 0);
+    if (!retPtr)
+    {
+        RETURN_NULL();
+    }
+
+    RETURN_ZVAL(retPtr.get(), 1, 0);
+}
+
+PHP_METHOD(config, getAll)
+{
+    zval *val = zend_read_property(config_ce, getThis(), "data", strlen("data"), 0, NULL);
+
+    if (!val)
+    {
+        RETURN_NULL();
+    }
+
+    RETURN_ZVAL(val, 1, 0);
 }
 
 zend_function_entry config_methods[] = {
 	PHP_ME(config, __construct,         NULL,     ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(config, get,         NULL,     ZEND_ACC_PUBLIC)
+	PHP_ME(config, getAll,         NULL,     ZEND_ACC_PUBLIC)
 
 	{NULL, NULL, NULL}
 };
@@ -64,7 +105,8 @@ MYAPI_STARTUP_FUNCTION(config)
     INIT_CLASS_ENTRY(ce, "myapi\\Config", config_methods);
     config_ce = zend_register_internal_class(&ce);
 
-    zend_declare_property_null(config_ce, "data", strlen("data"), ZEND_ACC_PUBLIC);
+    zend_declare_property_null(config_ce, "data", strlen("data"), ZEND_ACC_PRIVATE);
+    zend_declare_property_null(config_ce, "myapi_data", strlen("myapi_data"), ZEND_ACC_PUBLIC | ZEND_ACC_STATIC);
 
     return SUCCESS;
 }

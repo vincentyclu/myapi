@@ -1,5 +1,6 @@
 #include "MyApiTool.h"
-#include <vector>
+#include "zend_exceptions.h"
+
 
 MyApiTool::MyApiTool()
 {
@@ -7,147 +8,130 @@ MyApiTool::MyApiTool()
 
 MyApiTool::~MyApiTool()
 {
-    zval_ptr_dtor(&this->object);
+    if (Z_TYPE(this->object) == IS_OBJECT)
+    {
+        zval_ptr_dtor(&this->object);
+    }
+}
+
+bool MyApiTool::isCallable()
+{
+    return callable_tag;
+}
+
+zval MyApiTool::getObject()
+{
+    return this->object;
 }
 
 MyApiTool::MyApiTool(std::string className)
 {
-    zend_string *class_name_zstr = zend_string_init(className.c_str(), strlen(className.c_str()), 0);
-    object_init_ex(&this->object, zend_fetch_class(class_name_zstr, ZEND_FETCH_CLASS_AUTO));
-    zend_string_release(class_name_zstr);
+
+    std::shared_ptr<zend_string> class_name_ptr = MyApiTool::getZendString(className.c_str());
+    zend_class_entry *classEntry = zend_lookup_class(class_name_ptr.get());
+
+    if (classEntry != NULL)
+    {
+        callable_tag = true;
+        object_init_ex(&this->object, classEntry);
+    }
 }
 
-zval MyApiTool::callMethod(const char *function_name, std::vector<zval> vec)
+std::shared_ptr<zval> MyApiTool::callMethod(const char *function_name, int params_count, zval params[])
 {
-    return MyApiTool::callMethodWithObject(this->object, function_name, vec);
+    if (Z_TYPE(this->object) == IS_UNDEF)
+    {
+        return std::shared_ptr<zval>();
+    }
+
+    return MyApiTool::callMethodWithObject(this->object, function_name, params_count, params);
 }
 
-int MyApiTool::getNum()
+std::shared_ptr<zval> MyApiTool::callFunction(const char *function_name, int params_count, zval params[])
 {
-    return 555;
-}
+    zval* ret = (zval *) emalloc(sizeof(zval));
 
-zval MyApiTool::callFunction(const char *function_name, std::vector<zval> vec)
-{
-    int params_count;
-    zval ret;
+    std::shared_ptr<zval> ptr(ret, [](zval *p){
+        zval_ptr_dtor(p);
+        efree(p);
+    });
+
     zval function_name_zval;
-    zval *params;
 
-    params_count = vec.size();
+    std::shared_ptr<zval> functionPtr = MyApiTool::getZval(&function_name_zval, [&function_name_zval, &function_name](){
+        ZVAL_STRING(&function_name_zval, function_name);
+    });
 
-    if (params_count > 0)
-    {
-        params = new zval[params_count];
-
-        for (auto i = 0; i < params_count; i++)
-        {
-            params[i] = vec[i];
-        }
-    }
-
-    ZVAL_STRING(&function_name_zval, function_name);
-
-    int call_result = call_user_function(NULL, NULL, &function_name_zval, &ret, params_count, params);
-    zval_ptr_dtor(&function_name_zval);
-
-    if (params_count > 0)
-    {
-        delete[] params;
-    }
+    int call_result = call_user_function(NULL, NULL, functionPtr.get(), ret, params_count, params);
 
     if (FAILURE == call_result)
     {
         php_error_docref(NULL, E_WARNING, "FUNCTION NOT EXISTING");
-        return ret;
+        ptr.reset();
     }
 
-    return ret;
+    return ptr;
 }
 
-zval MyApiTool::callMethod(const char* class_name, const char *function_name, std::vector<zval> vec)
+std::shared_ptr<zval> MyApiTool::callMethod(const char* class_name, const char *function_name, int params_count, zval params[])
 {
-    int params_count;
-    zval ret;
+    zval* ret = (zval *) emalloc(sizeof(zval));
+
+    std::shared_ptr<zval> ptr(ret, [](zval *p){
+        zval_ptr_dtor(p);
+        efree(p);
+    });
+
     zval function_name_zval;
-    zval *params;
     zval obj;
-    zend_string* class_name_zstr;
 
-    params_count = vec.size();
+    std::shared_ptr<zval> objPtr = MyApiTool::getZval(&obj, [&obj, &class_name](){
+        std::shared_ptr<zend_string> classNamePtr = MyApiTool::getZendString(class_name);
 
-    if (params_count > 0)
-    {
-        params = new zval[params_count];
+        object_init_ex(&obj, zend_lookup_class(classNamePtr.get()));
+    });
 
-        for (auto i = 0; i < params_count; i++)
-        {
-            params[i] = vec[i];
-        }
-    }
+    std::shared_ptr<zval> functionNamePtr = MyApiTool::getZval(&function_name_zval, [&function_name_zval, &function_name](){
+        ZVAL_STRING(&function_name_zval, function_name);
+    });
 
-    class_name_zstr = zend_string_init(class_name, strlen(class_name), 0);
-    object_init_ex(&obj, zend_fetch_class(class_name_zstr, ZEND_FETCH_CLASS_AUTO));
-
-    ZVAL_STRING(&function_name_zval, function_name);
-
-    int call_result = call_user_function(NULL, &obj, &function_name_zval, &ret, params_count, params);
-
-    zval_ptr_dtor(&function_name_zval);
-    zend_string_release(class_name_zstr);
-    zval_ptr_dtor(&obj);
-
-    if (params_count > 0)
-    {
-        delete[] params;
-    }
+    int call_result = call_user_function(NULL, objPtr.get(), functionNamePtr.get(), ret, params_count, params);
 
     if (FAILURE == call_result)
     {
         php_error_docref(NULL, E_WARNING, "FUNCTION NOT EXISTING");
-        return ret;
+        ptr.reset();
     }
 
-    return ret;
+    return ptr;
 }
 
-zval MyApiTool::callMethodWithObject(zval& obj, const char *function_name, std::vector<zval> vec)
+std::shared_ptr<zval> MyApiTool::callMethodWithObject(zval& obj, const char *function_name, int params_count, zval params[])
 {
-    int params_count;
-    zval ret;
+    zval* ret = (zval *) emalloc(sizeof(zval));
+
+    std::shared_ptr<zval> ptr(ret, [](zval *p){
+        zval_ptr_dtor(p);
+        efree(p);
+    });
+
     zval function_name_zval;
-    zval *params = NULL;
 
-    params_count = vec.size();
+    std::shared_ptr<zval> functionNamePtr = MyApiTool::getZval(&function_name_zval, [&function_name_zval, &function_name](){
+        ZVAL_STRING(&function_name_zval, function_name);
+    });
 
-    if (params_count > 0)
-    {
-        params = new zval[params_count];
-
-        for (auto i = 0; i < params_count; i++)
-        {
-            params[i] = vec[i];
-        }
-    }
-
-    ZVAL_STRING(&function_name_zval, function_name);
-
-    int call_result = call_user_function(NULL, &obj, &function_name_zval, &ret, params_count, params);
-
-    zval_ptr_dtor(&function_name_zval);
-
-    if (params_count > 0)
-    {
-        delete[] params;
-    }
+    int call_result = call_user_function(NULL, &obj, &function_name_zval, ret, params_count, params);
 
     if (FAILURE == call_result)
     {
-        php_error_docref(NULL, E_WARNING, "FUNCTION NOT EXISTING");
-        return ret;
+        ptr.reset();
+        std::string errorMsg = std::string(function_name) + std::string(" FUNCTION NOT EXISTING");
+        const char *errMsg = errorMsg.c_str();
+        php_error_docref(NULL, E_WARNING, "%s", errMsg);
     }
 
-    return ret;
+    return ptr;
 }
 
 zval* MyApiTool::getData()
@@ -182,4 +166,178 @@ zval MyApiTool::getString(zend_string* str)
     ZVAL_STR(&val, str);
 
     return val;
+}
+
+/**
+  * get zend string
+  *
+  */
+std::shared_ptr<zend_string> MyApiTool::getZendString(const char* str, bool isDelete)
+{
+    zend_string *zstr = zend_string_init(str, strlen(str), 0);
+
+    std::shared_ptr<zend_string> ptr(zstr, [isDelete](zend_string* zstr_ptr){
+        if (isDelete)
+        {
+            zend_string_release(zstr_ptr);
+        }
+    });
+
+    return ptr;
+}
+
+std::shared_ptr<zval> MyApiTool::getZval(zval *valPtr, std::function<void ()> initFun, bool isDelete)
+{
+    initFun();
+
+    std::shared_ptr<zval> ptr(valPtr, [isDelete](zval *p){
+        if (isDelete)
+        {
+            zval_ptr_dtor(p);
+        }
+    });
+
+    return ptr;
+}
+
+/**
+  * get zend constant
+  *
+  *
+  */
+std::shared_ptr<zval> MyApiTool::getContant(const char* str, bool isDelete)
+{
+    zval * constant = zend_get_constant(MyApiTool::getZendString(str).get());
+
+    if (!constant)
+    {
+        return std::shared_ptr<zval>();
+    }
+
+    std::shared_ptr<zval> ptr(constant, [isDelete](zval *constantPtr){
+        if (isDelete)
+        {
+            zval_ptr_dtor(constantPtr);
+        }
+    });
+
+    return ptr;
+}
+
+std::shared_ptr<zval> MyApiTool::getContant(const char* str, zend_class_entry *entry, bool isDelete)
+{
+    zval * constant = zend_get_constant_ex(MyApiTool::getZendString(str).get(), entry, 0);
+
+    if (!constant)
+    {
+        return std::shared_ptr<zval>();
+    }
+
+    std::shared_ptr<zval> ptr(constant, [isDelete](zval *constantPtr){
+        if (isDelete)
+        {
+            zval_ptr_dtor(constantPtr);
+        }
+    });
+
+    return ptr;
+}
+
+std::shared_ptr<zval> MyApiTool::getZvalByHashTable(HashTable *ht, const char* str, bool isDelete)
+{
+    std::shared_ptr<zend_string> key = MyApiTool::getZendString(str);
+
+    return MyApiTool::getZvalByHashTable(ht, key.get(), isDelete);
+}
+
+std::shared_ptr<zval> MyApiTool::getZvalByHashTable(HashTable *ht, zend_string* str, bool isDelete)
+{
+    zval *val = zend_hash_find(ht, str);
+
+    if (val == NULL)
+    {
+        return std::shared_ptr<zval>();
+    }
+
+    std::shared_ptr<zval> retPtr(val, [isDelete](zval *valPtr){
+        if (isDelete)
+        {
+            zval_ptr_dtor(valPtr);
+        }
+    });
+
+    return retPtr;
+}
+
+std::shared_ptr<zval> MyApiTool::getZvalByHashTable(HashTable *ht, zend_long index, bool isDelete)
+{
+    zval *val = zend_hash_index_find(ht, index);
+
+    if (val == NULL)
+    {
+        return std::shared_ptr<zval>();
+    }
+
+    std::shared_ptr<zval> retPtr(val, [isDelete](zval *valPtr){
+        if (isDelete)
+        {
+            zval_ptr_dtor(valPtr);
+        }
+    });
+
+    return retPtr;
+}
+
+std::shared_ptr<zval> MyApiTool::getZvalByHashTableEx(HashTable *ht, const char* key, bool isDelete)
+{
+    char buf[100];
+    strcpy(buf, key);
+    char *k = strtok(buf, ".");
+    HashTable *ht_c = ht;
+    std::shared_ptr<zval> retPtr;
+
+    while (k != NULL)
+    {
+        if (ht_c == NULL)
+        {
+            retPtr.reset();
+            break;
+        }
+
+        retPtr = MyApiTool::getZvalByHashTable(ht_c, k, isDelete);
+
+        if (!retPtr)
+        {
+            retPtr.reset();
+            break;
+        }
+
+        if (retPtr && Z_TYPE_P(retPtr.get()) == IS_ARRAY)
+        {
+            ht_c = Z_ARRVAL_P(retPtr.get());
+        }
+        else
+        {
+            ht_c = NULL;
+        }
+
+        k = strtok(NULL, ".");
+    }
+
+    return retPtr;
+}
+
+void MyApiTool::throwException(std::string msg, zend_long code)
+{
+    std::shared_ptr<zend_string> classNamePtr = MyApiTool::getZendString("\\myapi\\Exception");
+    const char* msgStr = msg.c_str();
+
+    zend_throw_exception(zend_lookup_class(classNamePtr.get()), msgStr, code);
+}
+
+void MyApiTool::throwException(const char * msg, zend_long code)
+{
+    std::shared_ptr<zend_string> classNamePtr = MyApiTool::getZendString("\\myapi\\Exception");
+
+    zend_throw_exception(zend_lookup_class(classNamePtr.get()), msg, code);
 }

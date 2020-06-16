@@ -96,7 +96,7 @@ if test "$PHP_MYAPI" != "no"; then
   PHP_SUBST(VEHICLE_SHARED_LIBADD)
   PHP_ADD_LIBRARY(stdc++, 1, VEHICLE_SHARED_LIBADD)
 
-  PHP_NEW_EXTENSION(myapi, myapi.cpp api.cpp controller.cpp model.cpp myapi_config.cpp MyApiTool.cpp, $ext_shared)
+  PHP_NEW_EXTENSION(myapi, myapi.cpp api.cpp controller.cpp myapi_config.cpp request.cpp response.cpp router.cpp validator.cpp exception.cpp filter.cpp version.cpp log.cpp model.cpp orm.cpp MyApiTool.cpp SqlParser.cpp ValidatorEx.cpp ApiEx.cpp RouterEx.cpp ControllerEx.cpp RequestEx.cpp ResponseEx.cpp ConfigEx.cpp LogEx.cpp FilterEx.cpp ModelEx.cpp OrmEx.cpp VersionEx.cpp, $ext_shared)
 fi
 
 if test -z "$PHP_DEBUG" ; then
