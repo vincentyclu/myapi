@@ -30,14 +30,14 @@ PHP_METHOD(request, get)
         Z_PARAM_STRING(key, len);
     ZEND_PARSE_PARAMETERS_END();
 
-    std::shared_ptr<zval> get_ptr = Request::getInstance().get(key);
+    zval* get_ptr = Request::getInstance().get(key);
 
     if (!get_ptr)
     {
         RETURN_NULL();
     }
 
-    RETURN_ZVAL(get_ptr.get(), 1, 0);
+    RETURN_ZVAL(get_ptr, 1, 0);
 }
 
 PHP_METHOD(request, post)
@@ -49,14 +49,14 @@ PHP_METHOD(request, post)
         Z_PARAM_STRING(key, len);
     ZEND_PARSE_PARAMETERS_END();
 
-    std::shared_ptr<zval> post_ptr = Request::getInstance().post(key);
+    zval* post_ptr = Request::getInstance().post(key);
 
     if (!post_ptr)
     {
         RETURN_NULL();
     }
 
-    RETURN_ZVAL(post_ptr.get(), 1, 0);
+    RETURN_ZVAL(post_ptr, 1, 0);
 }
 
 PHP_METHOD(request, server)
@@ -68,14 +68,14 @@ PHP_METHOD(request, server)
         Z_PARAM_STRING(key, len);
     ZEND_PARSE_PARAMETERS_END();
 
-    std::shared_ptr<zval> server_ptr = Request::getInstance().server(key);
+    zval* server_ptr = Request::getInstance().server(key);
 
     if (!server_ptr)
     {
         RETURN_NULL();
     }
 
-    RETURN_ZVAL(server_ptr.get(), 1, 0);
+    RETURN_ZVAL(server_ptr, 1, 0);
 }
 
 PHP_METHOD(request, file)
@@ -87,14 +87,14 @@ PHP_METHOD(request, file)
         Z_PARAM_STRING(key, len);
     ZEND_PARSE_PARAMETERS_END();
 
-    std::shared_ptr<zval> file_ptr = Request::getInstance().file(key);
+    zval* file_ptr = Request::getInstance().file(key);
 
     if (!file_ptr)
     {
         RETURN_NULL();
     }
 
-    RETURN_ZVAL(file_ptr.get(), 1, 0);
+    RETURN_ZVAL(file_ptr, 1, 0);
 }
 
 PHP_METHOD(request, request)
@@ -106,14 +106,14 @@ PHP_METHOD(request, request)
         Z_PARAM_STRING(key, len);
     ZEND_PARSE_PARAMETERS_END();
 
-    std::shared_ptr<zval> request_ptr = Request::getInstance().request(key);
+    zval* request_ptr = Request::getInstance().request(key);
 
     if (!request_ptr)
     {
         RETURN_NULL();
     }
 
-    RETURN_ZVAL(request_ptr.get(), 1, 0);
+    RETURN_ZVAL(request_ptr, 1, 0);
 }
 
 PHP_METHOD(request, argv)
@@ -124,14 +124,14 @@ PHP_METHOD(request, argv)
         Z_PARAM_LONG(key);
     ZEND_PARSE_PARAMETERS_END();
 
-    std::shared_ptr<zval> argv_ptr = Request::getInstance().argv(key);
+    zval* argv_ptr = Request::getInstance().argv(key);
 
     if (!argv_ptr)
     {
         RETURN_NULL();
     }
 
-    RETURN_ZVAL(argv_ptr.get(), 1, 0);
+    RETURN_ZVAL(argv_ptr, 1, 0);
 }
 
 zend_function_entry request_methods[] = {

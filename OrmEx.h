@@ -23,7 +23,7 @@ public:
     std::shared_ptr<zval> get(zval *obj);
     std::shared_ptr<zval> getOne(zval *obj);
 
-    bool initPlaceholder(zval *obj, zval *placeholder, zval *placeholderData, zval *where = NULL);
+    bool initData(zval *obj, zval *data, zval *where);
     static std::string getTableName(zval *obj);
     static std::string getPrimaryKey(zval *obj);
 

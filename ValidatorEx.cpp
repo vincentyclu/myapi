@@ -1,6 +1,18 @@
+extern "C" {
+    #ifdef HAVE_CONFIG_H
+    # include "config.h"
+    #endif
+
+    #include "php.h"
+    #include "ext/standard/info.h"
+    #include "ext/standard/php_var.h"
+}
 #include "MyApiTool.h"
 #include "ValidatorEx.h"
 #include "zend_exceptions.h"
+#include "ResponseEx.h"
+#include "error_code.h"
+#include "ConfigEx.h"
 
 
 Validator::Validator()
@@ -16,42 +28,35 @@ bool Validator::checkInt(zval *data)
 
     if (Z_TYPE_P(data) != IS_LONG)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " NOT INTEGER";
-        Validator::throwError(errorMsg, 101);
+        MYAPI_ERR_RESPONSE(201, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::shared_ptr<zval> minPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "min", false);
-    zval *minLaw = minPtr.get();
+    zval *minLaw = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "min");
 
     if (!minLaw || Z_TYPE_P(minLaw) != IS_LONG)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-        Validator::throwError(errorMsg, 102);
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
-    if (minPtr && Z_LVAL_P(data) < Z_LVAL_P(minPtr.get()))
+    if (minLaw && Z_LVAL_P(data) < Z_LVAL_P(minLaw))
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " MIN ERROR";
-        Validator::throwError(errorMsg, 103);
+        MYAPI_ERR_RESPONSE(203, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::shared_ptr<zval> maxPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "max", false);
-    zval *maxLaw = maxPtr.get();
+    zval *maxLaw = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "max");
 
     if (!maxLaw || Z_TYPE_P(maxLaw) != IS_LONG)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-        Validator::throwError(errorMsg, 104);
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
-    if (maxPtr && Z_LVAL_P(data) > Z_LVAL_P(maxPtr.get()))
+    if (maxLaw && Z_LVAL_P(data) > Z_LVAL_P(maxLaw))
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " MAX ERROR";
-        Validator::throwError(errorMsg, 105);
+        MYAPI_ERR_RESPONSE(204, ZSTR_VAL(this->key));
         return false;
     }
 
@@ -69,42 +74,35 @@ bool Validator::checkDouble(zval *data)
 
     if (Z_TYPE_P(data) != IS_DOUBLE)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " NOT FLOAT";
-        Validator::throwError(errorMsg, 106);
+        MYAPI_ERR_RESPONSE(205, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::shared_ptr<zval> minPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "min", false);
-    zval *minLaw = minPtr.get();
+    zval *minLaw = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "min");
 
     if (!minLaw || Z_TYPE_P(minLaw) != IS_DOUBLE)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-        Validator::throwError(errorMsg, 107);
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
-    if (minPtr && Z_DVAL_P(data) < Z_DVAL_P(minPtr.get()))
+    if (minLaw && Z_DVAL_P(data) < Z_DVAL_P(minLaw))
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " MIN ERROR";
-        Validator::throwError(errorMsg, 108);
+        MYAPI_ERR_RESPONSE(203, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::shared_ptr<zval> maxPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "max", false);
-    zval *maxLaw = maxPtr.get();
+    zval* maxLaw = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "max");
 
     if (!maxLaw || Z_TYPE_P(maxLaw) != IS_DOUBLE)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-        Validator::throwError(errorMsg, 109);
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
-    if (maxPtr && Z_DVAL_P(data) > Z_DVAL_P(maxPtr.get()))
+    if (maxLaw && Z_DVAL_P(data) > Z_DVAL_P(maxLaw))
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " MAX ERROR";
-        Validator::throwError(errorMsg, 110);
+        MYAPI_ERR_RESPONSE(204, ZSTR_VAL(this->key));
         return false;
     }
 
@@ -122,42 +120,35 @@ bool Validator::checkString(zval *data)
 
     if (Z_TYPE_P(data) != IS_STRING)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " NOT STRING";
-        Validator::throwError(errorMsg, 111);
+        MYAPI_ERR_RESPONSE(206, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::shared_ptr<zval> minPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "min_len", false);
-    zval *minLaw = minPtr.get();
+    zval *minLaw = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "min_len");
 
     if (!minLaw || Z_TYPE_P(minLaw) != IS_LONG)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-        Validator::throwError(errorMsg, 112);
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
-    if (minPtr && Z_STRLEN_P(data) < Z_LVAL_P(minPtr.get()))
+    if (minLaw && Z_STRLEN_P(data) < Z_LVAL_P(minLaw))
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " MIN LEN ERROR";
-        Validator::throwError(errorMsg, 113);
+        MYAPI_ERR_RESPONSE(207, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::shared_ptr<zval> maxPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "max_len", false);
-    zval *maxLaw = maxPtr.get();
+    zval *maxLaw = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "max_len");
 
     if (!maxLaw || Z_TYPE_P(maxLaw) != IS_LONG)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-        Validator::throwError(errorMsg, 114);
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
-    if (maxPtr && Z_STRLEN_P(data) > Z_LVAL_P(maxPtr.get()))
+    if (maxLaw && Z_STRLEN_P(data) > Z_LVAL_P(maxLaw))
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " MAX LEN ERROR";
-        Validator::throwError(errorMsg, 115);
+        MYAPI_ERR_RESPONSE(208, ZSTR_VAL(this->key));
         return false;
     }
 
@@ -175,8 +166,7 @@ bool Validator::checkDate(zval *data)
 
     if (Z_TYPE_P(data) != IS_STRING)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " NOT DATE";
-        Validator::throwError(errorMsg, 116);
+        MYAPI_ERR_RESPONSE(209, ZSTR_VAL(this->key));
         return false;
     }
 
@@ -192,9 +182,16 @@ bool Validator::checkDate(zval *data)
 
     if (Z_TYPE(*retPtr) == IS_FALSE)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " NOT DATE";
-        Validator::throwError(errorMsg, 117);
+        MYAPI_ERR_RESPONSE(209, ZSTR_VAL(this->key));
         return false;
+    }
+
+    zval* dataPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "data");
+
+    if (dataPtr && Z_TYPE_P(dataPtr) == IS_STRING && std::string(Z_STRVAL_P(dataPtr)) == "timestamp")
+    {
+        convert_to_long(data);
+        Z_LVAL_P(data) = Z_LVAL_P(retPtr.get());
     }
 
     result = data;
@@ -211,50 +208,46 @@ bool Validator::checkFile(zval *data)
 
     if (Z_TYPE_P(data) != IS_ARRAY)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " NOT FILE";
-        Validator::throwError(errorMsg, 118);
+        MYAPI_ERR_RESPONSE(210, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::shared_ptr<zval> lawSizePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "size", false);
+    zval* lawSizePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "size");
 
     if (lawSizePtr)
     {
         if (!lawSizePtr || Z_TYPE(*lawSizePtr) != IS_LONG)
         {
-            std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-            Validator::throwError(errorMsg, 119);
+            MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
             return false;
         }
 
-        std::shared_ptr<zval> sizePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(data), "size", false);
+        zval* sizePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(data), "size");
 
         if (!sizePtr || Z_LVAL(*sizePtr) > Z_LVAL(*lawSizePtr))
         {
-            std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " SIZE INVALID";
-            Validator::throwError(errorMsg, 120);
+            MYAPI_ERR_RESPONSE(211, ZSTR_VAL(this->key));
             return false;
         }
     }
 
-    std::shared_ptr<zval> lawTypePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "file_type", false);
+    zval* lawTypePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "file_type");
 
     if (lawTypePtr)
     {
         if (!lawTypePtr || Z_TYPE(*lawTypePtr) != IS_ARRAY)
         {
-            std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-            Validator::throwError(errorMsg, 121);
+            MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
             return false;
         }
 
-        std::shared_ptr<zval> typePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(data), "type", false);
+        zval* typePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(data), "type");
 
         zval *val;
         bool isTypeValid = false;
         std::string currentFileType = Z_STRVAL(*typePtr);
 
-        ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(lawTypePtr.get()), val)
+        ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(lawTypePtr), val)
             std::string lawFileType = Z_STRVAL_P(val);
 
             if (currentFileType == lawFileType)
@@ -266,8 +259,7 @@ bool Validator::checkFile(zval *data)
 
         if (!isTypeValid)
         {
-            std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " FILE TYPE INVALID";
-            Validator::throwError(errorMsg, 122);
+            MYAPI_ERR_RESPONSE(212, ZSTR_VAL(this->key));
             return false;
         }
     }
@@ -286,18 +278,15 @@ bool Validator::checkRegex(zval *data)
 
     if (Z_TYPE_P(data) != IS_STRING)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " NOT REGEX";
-        Validator::throwError(errorMsg, 123);
+        MYAPI_ERR_RESPONSE(213, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::shared_ptr<zval> regexPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "pattern", false);
-    zval *regexLaw = regexPtr.get();
+    zval *regexLaw = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "pattern");
 
     if (!regexLaw || Z_TYPE_P(regexLaw) != IS_STRING)
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " LAW INVALID";
-        Validator::throwError(errorMsg, 124);
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
@@ -313,8 +302,7 @@ bool Validator::checkRegex(zval *data)
 
     if (Z_TYPE(*retPtr) == IS_FALSE || (Z_TYPE(*retPtr) == IS_LONG && Z_LVAL(*retPtr) == 0))
     {
-        std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " NOT MATCH REGEX";
-        Validator::throwError(errorMsg, 125);
+        MYAPI_ERR_RESPONSE(214, ZSTR_VAL(this->key));
         return false;
     }
 
@@ -325,64 +313,89 @@ bool Validator::checkRegex(zval *data)
 
 bool Validator::doCheck()
 {
-    std::shared_ptr<zval> typePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "type", false);
-
-    if (!typePtr)
+    if (Z_TYPE_P(law) != IS_ARRAY)
     {
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::string type = Z_STRVAL_P(typePtr.get());
+    if (this->key == NULL)
+    {
+        Response::getInstance().setErrorResult(MYAPI_ERR(218));
+        return false;
+    }
 
-    std::shared_ptr<zval> sourcePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "source", false);
+    zval* sourcePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "source");
 
     if (!sourcePtr)
     {
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
         return false;
     }
 
-    std::string source = Z_STRVAL_P(sourcePtr.get());
+    std::string source = Z_STRVAL_P(sourcePtr);
 
-    std::shared_ptr<zval> dataPtr;
+    zval *data;
 
     if (this->key && source == "get")
     {
-        dataPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(this->getData), this->key, false);
+        data = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(this->getData), this->key);
     }
     else if (this->key && source == "post")
     {
-        dataPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(this->postData), this->key, false);
+        data = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(this->postData), this->key);
     }
     else if (this->key && source == "file" && this->fileData && Z_TYPE_P(this->fileData) == IS_ARRAY)
     {
-        dataPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(this->fileData), this->key, false);
+        data = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(this->fileData), this->key);
     }
-    else if (this->numKey && source == "cli" && this->cliData && Z_TYPE_P(this->cliData) == IS_ARRAY)
+    else if (source == "cli" && this->cliData && Z_TYPE_P(this->cliData) == IS_ARRAY)
     {
-        dataPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(this->cliData), this->numKey, false);
+        zval* indexPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "index");
+
+        if (!indexPtr || Z_TYPE_P(indexPtr) != IS_LONG)
+        {
+            MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
+            return false;
+        }
+
+        data = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(this->cliData), Z_LVAL_P(indexPtr));
+
+        result = data;
+        return true;
     } else {
-        Validator::throwError("data fetching error", 126);
+        MYAPI_ERR_RESPONSE(215, ZSTR_VAL(this->key));
         return false;
     }
 
-    zval *data = dataPtr.get();
-
-    std::shared_ptr<zval> requirePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "require", false);
+    zval* requirePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "require");
 
     if (requirePtr)
     {
-        zval *requireVal = requirePtr.get();
-
-        if (Z_TYPE_INFO_P(requireVal) == IS_TRUE && !dataPtr)
+        if (Z_TYPE_P(requirePtr) == IS_TRUE && !data)
         {
-            std::string errorMsg = std::string(ZSTR_VAL(this->key)) + " PARAM REQUIRED";
-
-            Validator::throwError(errorMsg, 127);
+            MYAPI_ERR_RESPONSE(216, ZSTR_VAL(this->key));
             return false;
         }
     }
 
+    if (!data)
+    {
+        result = NULL;
+        return true;
+    }
+
     bool ret;
+
+    zval* typePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(law), "type");
+
+    if (!typePtr)
+    {
+        MYAPI_ERR_RESPONSE(202, ZSTR_VAL(this->key));
+        return false;
+    }
+
+    std::string type = Z_STRVAL_P(typePtr);
 
     if (type == "int")
     {
@@ -410,7 +423,8 @@ bool Validator::doCheck()
     }
     else
     {
-        php_error_docref(NULL, E_WARNING, "TYPE NOT FOUND");
+        MYAPI_ERR_RESPONSE(217, ZSTR_VAL(this->key));
+        return false;
     }
 
     return ret;
@@ -471,16 +485,16 @@ void Validator::throwError(std::string msg, int code)
     error_msg = msg;
 
     error_code = code;
+
+    Response::getInstance().setErrorResult(msg, code);
 }
 
-zval Validator::doValidator(zval *laws, zval *get_data, zval *post_data, zval *file_data, zval *cli_data, bool& isSuccess)
+bool Validator::doValidator(zval *laws, zval *get_data, zval *post_data, zval *file_data, zval *cli_data, zval *result)
 {
     zend_string *key;
     zend_long num_key;
     zval *val;
     Validator myApiValidator;
-    zval result;
-    array_init(&result);
 
     ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL_P(laws), num_key, key, val)
         myApiValidator.setNumKey(num_key);
@@ -491,35 +505,26 @@ zval Validator::doValidator(zval *laws, zval *get_data, zval *post_data, zval *f
         myApiValidator.setFileData(file_data);
         myApiValidator.setCliData(cli_data);
 
-        bool ret = myApiValidator.doCheck();
+        bool isSuccess = myApiValidator.doCheck();
 
-        if (myApiValidator.getErrorCode() > 0)
+        if (!isSuccess)
         {
-            isSuccess = false;
-            zend_hash_clean(Z_ARRVAL(result));
-            add_assoc_long(&result, "error_code", myApiValidator.getErrorCode());
-            add_assoc_string(&result, "error_msg", myApiValidator.getErrorMsg().c_str());
-            return result;
+            return false;
         }
+
+        zval *ret = myApiValidator.getResult();
 
         if (ret)
         {
-            zval *ret = myApiValidator.getResult();
-
-            if (key != NULL)
-            {
-                add_assoc_zval(&result, ZSTR_VAL(key), ret);
-            }
-            else
-            {
-                std::string k = "cli_" + std::to_string(num_key);
-                add_assoc_zval(&result, k.c_str(), ret);
-            }
-
+            add_assoc_zval(result, ZSTR_VAL(key), ret);
         }
+        else
+        {
+            add_assoc_null(result, ZSTR_VAL(key));
+        }
+
+
     ZEND_HASH_FOREACH_END();
 
-    isSuccess = true;
-
-    return result;
+    return true;
 }

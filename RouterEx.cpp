@@ -53,26 +53,32 @@ std::string Router::getAction()
 
 std::string Router::getController()
 {
-    zval *val = zend_read_static_property(router_ce, "controller", strlen("controller"), 0);
+    zval *api = zend_read_static_property(router_ce, "api", strlen("api"), 0);
+    zval *module = zend_read_static_property(router_ce, "module", strlen("module"), 0);
 
-    if (val && Z_TYPE_P(val) == IS_STRING)
+    if (!api || !module)
     {
-        return Z_STRVAL_P(val);
+        return "";
     }
 
-    return "";
+    std::string controller = std::string("\\") + Z_STRVAL_P(api) + "\\controller\\" + Z_STRVAL_P(module);
+
+    return controller;
 }
 
 std::string Router::getVersionClass()
 {
-    zval *val = zend_read_static_property(router_ce, "version_class", strlen("version_class"), 0);
+    zval *api = zend_read_static_property(router_ce, "api", strlen("api"), 0);
+    zval *module = zend_read_static_property(router_ce, "module", strlen("module"), 0);
 
-    if (val && Z_TYPE_P(val) == IS_STRING)
+    if (!api || !module)
     {
-        return Z_STRVAL_P(val);
+        return "";
     }
 
-    return "";
+    std::string versionClass = std::string("\\") + Z_STRVAL_P(api) + "\\version\\" + Z_STRVAL_P(module);
+
+    return versionClass;
 }
 
 void Router::init()
@@ -84,77 +90,68 @@ void Router::init()
         zend_update_static_property(router_ce, "php_sapi", strlen("php_sapi"), sapiPtr.get());
     }
 
-    std::shared_ptr<zval> apiPtr;
-    std::shared_ptr<zval> modulePtr;
-    std::shared_ptr<zval> actionPtr;
-    zval apiZval;
+    zval* apiPtr;
+    zval* modulePtr;
+    zval* actionPtr;
 
     if (std::string(Z_STRVAL_P(sapiPtr.get())) == "cli")
     {
-        std::shared_ptr<zval> argcPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "argc", false);
-        std::shared_ptr<zval> argvPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "argv", false);
+        zval* argcPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "argc");
+        zval* argvPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "argv");
 
-        if (Z_LVAL_P(argcPtr.get()) == 3)
+        if (Z_LVAL_P(argcPtr) == 3)
         {
-            modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr.get()), (zend_long) 1, false);
-            actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr.get()), (zend_long) 2, false);
+            modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr), (zend_long) 1);
+            actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr), (zend_long) 2);
         }
-        else if (Z_LVAL_P(argcPtr.get()) >= 4)
+        else if (Z_LVAL_P(argcPtr) >= 4)
         {
-            apiPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr.get()), (zend_long) 1, false);
-            modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr.get()), (zend_long) 2, false);
-            actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr.get()), (zend_long) 3, false);
+            apiPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr), (zend_long) 1);
+            modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr), (zend_long) 2);
+            actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr), (zend_long) 3);
         }
         else
         {
-            MyApiTool::throwException("router error", 10);
+            MyApiTool::throwException(MYAPI_ERR(150));
             return;
         }
     }
     else
     {
-        std::shared_ptr<zval> getPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_GET", false);
-        apiPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr.get()), "api", false);
-        modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr.get()), "module", false);
-        actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr.get()), "action", false);
+        zval* getPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_GET");
+        apiPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr), "api");
+        modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr), "module");
+        actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr), "action");
     }
 
     if (!apiPtr)
     {
-        apiPtr = MyApiTool::getZval(&apiZval, [&apiZval](){
-                ZVAL_STRING(&apiZval, "api");
-            });
-    }
-
-    zend_update_static_property(router_ce, "api", strlen("api"), apiPtr.get());
-
-    if (modulePtr)
-    {
-        zend_update_static_property(router_ce, "module", strlen("module"), modulePtr.get());
+        zend_update_static_property_string(router_ce, "api", strlen("api"), "api");
     }
     else
     {
-        MyApiTool::throwException("module cannot be empty", 10);
+        zend_update_static_property(router_ce, "api", strlen("api"), apiPtr);
+    }
+
+    if (modulePtr)
+    {
+        zend_update_static_property(router_ce, "module", strlen("module"), modulePtr);
+    }
+    else
+    {
+        MyApiTool::throwException(MYAPI_ERR(151));
         return;
     }
 
     if (actionPtr)
     {
-        zend_update_static_property(router_ce, "action", strlen("action"), actionPtr.get());
+        zend_update_static_property(router_ce, "action", strlen("action"), actionPtr);
     }
     else
     {
-        MyApiTool::throwException("action cannot be empty", 10);
+        MyApiTool::throwException(MYAPI_ERR(152));
         return;
     }
-
-    std::string moduleStr = Z_STRVAL_P(modulePtr.get());
-    //moduleStr[0] = toupper(moduleStr[0]);
-    std::string controller = std::string("\\") + Z_STRVAL_P(apiPtr.get()) + "\\controller\\" + moduleStr;
-    std::string versionClass = std::string("\\") + Z_STRVAL_P(apiPtr.get()) + "\\version\\" + moduleStr;
-
-    zend_update_static_property_string(router_ce, "controller", strlen("controller"), controller.c_str());
-    zend_update_static_property_string(router_ce, "version_class", strlen("version_class"), versionClass.c_str());
 }
 
 Router Router::getInstance()

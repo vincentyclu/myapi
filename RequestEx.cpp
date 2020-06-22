@@ -17,122 +17,122 @@ extern zend_class_entry *request_ce;
 
 void Request::init()
 {
-    std::shared_ptr<zval> getPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_GET", false);
+    zval* getPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_GET");
 
     if (getPtr)
     {
-        zend_update_static_property(request_ce, "get_data", strlen("get_data"), getPtr.get());
+        zend_update_static_property(request_ce, "get_data", strlen("get_data"), getPtr);
     }
 
-    std::shared_ptr<zval> postPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_POST", false);
+    zval* postPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_POST");
 
     if (postPtr)
     {
-        zend_update_static_property(request_ce, "post_data", strlen("post_data"), postPtr.get());
+        zend_update_static_property(request_ce, "post_data", strlen("post_data"), postPtr);
     }
 
-    std::shared_ptr<zval> serverPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_SERVER", false);
+    zval* serverPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_SERVER");
 
     if (serverPtr)
     {
-        zend_update_static_property(request_ce, "server_data", strlen("server_data"), serverPtr.get());
+        zend_update_static_property(request_ce, "server_data", strlen("server_data"), serverPtr);
     }
 
-    std::shared_ptr<zval> filePtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_FILES", false);
+    zval* filePtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_FILES");
 
     if (filePtr)
     {
-        zend_update_static_property(request_ce,  "file_data", strlen("file_data"), filePtr.get());
+        zend_update_static_property(request_ce,  "file_data", strlen("file_data"), filePtr);
     }
 
-    std::shared_ptr<zval> requestPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_REQUEST", false);
+    zval* requestPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_REQUEST");
 
     if (requestPtr)
     {
-        zend_update_static_property(request_ce,  "request_data", strlen("request_data"), requestPtr.get());
+        zend_update_static_property(request_ce,  "request_data", strlen("request_data"), requestPtr);
     }
 
-    std::shared_ptr<zval> argvPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "argv", false);
+    zval* argvPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "argv");
 
     if (argvPtr)
     {
-        zend_update_static_property(request_ce,  "argv_data", strlen("argv_data"), argvPtr.get());
+        zend_update_static_property(request_ce,  "argv_data", strlen("argv_data"), argvPtr);
     }
 }
 
-std::shared_ptr<zval> Request::get(std::string key)
+zval* Request::get(std::string key)
 {
-    std::shared_ptr<zval> retPtr;
+    zval *retPtr = NULL;
     zval *get_data = zend_read_static_property(request_ce, "get_data", strlen("get_data"), 0);
 
     if (Z_TYPE_P(get_data) == IS_ARRAY)
     {
-        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(get_data), key.c_str(), false);
+        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(get_data), key.c_str());
     }
 
     return retPtr;
 }
 
-std::shared_ptr<zval> Request::post(std::string key)
+zval* Request::post(std::string key)
 {
-    std::shared_ptr<zval> retPtr;
+    zval *retPtr = NULL;
     zval *post_data = zend_read_static_property(request_ce, "post_data", strlen("post_data"), 0);
 
     if (Z_TYPE_P(post_data) == IS_ARRAY)
     {
-        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(post_data), key.c_str(), false);
+        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(post_data), key.c_str());
     }
 
     return retPtr;
 }
 
-std::shared_ptr<zval> Request::server(std::string key)
+zval* Request::server(std::string key)
 {
-    std::shared_ptr<zval> retPtr;
+    zval *retPtr = NULL;
     zval *server_data = zend_read_static_property(request_ce, "server_data", strlen("server_data"), 0);
 
     if (Z_TYPE_P(server_data) == IS_ARRAY)
     {
-        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(server_data), key.c_str(), false);
+        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(server_data), key.c_str());
     }
 
     return retPtr;
 }
 
-std::shared_ptr<zval> Request::file(std::string key)
+zval* Request::file(std::string key)
 {
-    std::shared_ptr<zval> retPtr;
+    zval *retPtr = NULL;
     zval *file_data = zend_read_static_property(request_ce, "file_data", strlen("file_data"), 0);
 
     if (Z_TYPE_P(file_data) == IS_ARRAY)
     {
-        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(file_data), key.c_str(), false);
+        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(file_data), key.c_str());
     }
 
     return retPtr;
 }
 
-std::shared_ptr<zval> Request::request(std::string key)
+zval* Request::request(std::string key)
 {
-    std::shared_ptr<zval> retPtr;
+    zval *retPtr = NULL;
     zval *request_data = zend_read_static_property(request_ce, "request_data", strlen("request_data"), 0);
 
     if (Z_TYPE_P(request_data) == IS_ARRAY)
     {
-        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(request_data), key.c_str(), false);
+        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(request_data), key.c_str());
     }
 
     return retPtr;
 }
 
-std::shared_ptr<zval> Request::argv(zend_long key)
+zval* Request::argv(zend_long key)
 {
-    std::shared_ptr<zval> retPtr;
+    zval *retPtr = NULL;
     zval *argv_data = zend_read_static_property(request_ce, "argv_data", strlen("argv_data"), 0);
 
     if (Z_TYPE_P(argv_data) == IS_ARRAY)
     {
-        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argv_data), key, false);
+        retPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argv_data), key);
     }
 
     return retPtr;

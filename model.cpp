@@ -96,43 +96,8 @@ PHP_METHOD(model, add)
         Z_PARAM_ARRAY(data)
     ZEND_PARSE_PARAMETERS_END();
 
-    zend_string* key;
-    zval *value;
+    bool ret = Model::getInstance().add(table_name, data);
 
-    zval placeholder;
-    zval placeholder_data;
-    array_init(&placeholder);
-    array_init(&placeholder_data);
-
-    ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(data), key, value){
-        if (key == NULL || (Z_TYPE_P(value) < IS_LONG || Z_TYPE_P(value) > IS_STRING))
-        {
-            zval_ptr_dtor(&placeholder);
-            zval_ptr_dtor(&placeholder_data);
-            RETURN_NULL();
-        }
-
-        std::string ph_str = std::string(":") + ZSTR_VAL(key);
-        add_assoc_string(&placeholder, ZSTR_VAL(key), ph_str.c_str());
-
-        switch (Z_TYPE_P(value))
-        {
-            case IS_LONG:
-                add_assoc_long(&placeholder_data, ph_str.c_str(), Z_LVAL_P(value));
-                break;
-            case IS_DOUBLE:
-                add_assoc_double(&placeholder_data, ph_str.c_str(), Z_DVAL_P(value));
-                break;
-            case IS_STRING:
-                add_assoc_string(&placeholder_data, ph_str.c_str(), Z_STRVAL_P(value));
-                break;
-        }
-
-    }ZEND_HASH_FOREACH_END();
-
-    bool ret = Model::getInstance().add(table_name, &placeholder, &placeholder_data);
-    zval_ptr_dtor(&placeholder);
-    zval_ptr_dtor(&placeholder_data);
     RETURN_BOOL(ret);
 }
 
@@ -146,112 +111,12 @@ PHP_METHOD(model, update)
 
     ZEND_PARSE_PARAMETERS_START(3, 3)
         Z_PARAM_STRING(table_name, table_name_len)
-        Z_PARAM_ARRAY(where)
         Z_PARAM_ARRAY(data)
+        Z_PARAM_ARRAY(where)
     ZEND_PARSE_PARAMETERS_END();
 
-    zend_string* key;
-    zval *value;
+    bool ret = Model::getInstance().update(table_name, data, where);
 
-    zval placeholder_key_values;
-    zval placeholder_where;
-    zval placeholder_data;
-    array_init(&placeholder_key_values);
-    array_init(&placeholder_where);
-    array_init(&placeholder_data);
-
-    ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(data), key, value){
-        if (key == NULL || (Z_TYPE_P(value) < IS_LONG || Z_TYPE_P(value) > IS_STRING))
-        {
-            zval_ptr_dtor(&placeholder_key_values);
-            zval_ptr_dtor(&placeholder_where);
-            zval_ptr_dtor(&placeholder_data);
-            RETURN_NULL();
-        }
-
-        std::string ph_str = std::string(":") + ZSTR_VAL(key);
-        add_assoc_string(&placeholder_key_values, ZSTR_VAL(key), ph_str.c_str());
-
-        switch (Z_TYPE_P(value))
-        {
-            case IS_LONG:
-                add_assoc_long(&placeholder_data, ph_str.c_str(), Z_LVAL_P(value));
-                break;
-            case IS_DOUBLE:
-                add_assoc_double(&placeholder_data, ph_str.c_str(), Z_DVAL_P(value));
-                break;
-            case IS_STRING:
-                add_assoc_string(&placeholder_data, ph_str.c_str(), Z_STRVAL_P(value));
-                break;
-        }
-
-    }ZEND_HASH_FOREACH_END();
-
-    ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(where), key, value){
-        if (key == NULL || (Z_TYPE_P(value) < IS_LONG || Z_TYPE_P(value) > IS_ARRAY))
-        {
-            zval_ptr_dtor(&placeholder_key_values);
-            zval_ptr_dtor(&placeholder_where);
-            zval_ptr_dtor(&placeholder_data);
-            RETURN_NULL();
-        }
-
-        std::string ph_str;
-        if (Z_TYPE_P(value) != IS_ARRAY)
-        {
-            ph_str = std::string(":") + ZSTR_VAL(key);
-            add_assoc_string(&placeholder_where, ZSTR_VAL(key), ph_str.c_str());
-        }
-
-        switch (Z_TYPE_P(value))
-        {
-            case IS_LONG:
-                add_assoc_long(&placeholder_data, ph_str.c_str(), Z_LVAL_P(value));
-                break;
-            case IS_DOUBLE:
-                add_assoc_double(&placeholder_data, ph_str.c_str(), Z_DVAL_P(value));
-                break;
-            case IS_STRING:
-                add_assoc_string(&placeholder_data, ph_str.c_str(), Z_STRVAL_P(value));
-                break;
-            case IS_ARRAY:
-                zval *v;
-                zval inArray;
-                array_init(&inArray);
-
-                ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(value), v)
-                    if (Z_TYPE_P(v) < IS_LONG || Z_TYPE_P(v) > IS_STRING)
-                    {
-                        zval_ptr_dtor(&placeholder_key_values);
-                        zval_ptr_dtor(&placeholder_where);
-                        zval_ptr_dtor(&placeholder_data);
-                        zval_ptr_dtor(&inArray);
-                        RETURN_NULL();
-                    }
-
-                    if (Z_TYPE_P(v) == IS_STRING)
-                    {
-                        std::string tmp_str = std::string(":") + Z_STRVAL_P(v);
-                        add_next_index_string(&inArray, tmp_str.c_str());
-                        add_assoc_string(&placeholder_data, tmp_str.c_str(), Z_STRVAL_P(v));
-                    }
-                    else
-                    {
-                        add_next_index_zval(&inArray, v);
-                    }
-                ZEND_HASH_FOREACH_END();
-
-                add_assoc_zval(&placeholder_where, ZSTR_VAL(key), &inArray);
-                zval_ptr_dtor(&inArray);
-                break;
-        }
-
-    }ZEND_HASH_FOREACH_END();
-
-    bool ret = Model::getInstance().update(table_name, &placeholder_key_values, &placeholder_where, &placeholder_data);
-    zval_ptr_dtor(&placeholder_key_values);
-    zval_ptr_dtor(&placeholder_where);
-    zval_ptr_dtor(&placeholder_data);
     RETURN_BOOL(ret);
 }
 
@@ -264,7 +129,7 @@ PHP_METHOD(model, delete)
 
     ZEND_PARSE_PARAMETERS_START(2, 2)
         Z_PARAM_STRING(table_name, table_name_len)
-        Z_PARAM_ARRAY(where)
+        Z_PARAM_ZVAL(where)
     ZEND_PARSE_PARAMETERS_END();
 
     bool ret = Model::getInstance().del(table_name, where);

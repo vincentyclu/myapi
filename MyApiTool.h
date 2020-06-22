@@ -35,10 +35,10 @@ public:
     static std::shared_ptr<zend_string> getZendString(const char* str, bool isDelete = true);
     static std::shared_ptr<zval> getContant(const char* str, bool isDelete = true);
     static std::shared_ptr<zval> getContant(const char* str, zend_class_entry *entry, bool isDelete = true);
-    static std::shared_ptr<zval> getZvalByHashTable(HashTable *ht, const char* str, bool isDelete = true);
-    static std::shared_ptr<zval> getZvalByHashTable(HashTable *ht, zend_string* str, bool isDelete = true);
-    static std::shared_ptr<zval> getZvalByHashTable(HashTable *ht, zend_long index, bool isDelete = true);
-    static std::shared_ptr<zval> getZvalByHashTableEx(HashTable *ht, const char* key, bool isDelete = false);
+    static zval* getZvalByHashTable(HashTable *ht, const char* str);
+    static zval* getZvalByHashTable(HashTable *ht, zend_string* str);
+    static zval* getZvalByHashTable(HashTable *ht, zend_long index);
+    static zval* getZvalByHashTableEx(HashTable *ht, const char* key);
     static std::shared_ptr<zval> getZval(zval *valPtr, std::function<void ()> initFun, bool isDelete = true);
 
 

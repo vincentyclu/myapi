@@ -47,9 +47,31 @@ PHP_METHOD(response, output)
     }
 }
 
+PHP_METHOD(response, setOutputPattern)
+{
+    char *output_pattern;
+    size_t output_pattern_len;
+    zval *closure;
+
+    ZEND_PARSE_PARAMETERS_START(1, 2)
+        Z_PARAM_STRING(output_pattern, output_pattern_len)
+        Z_PARAM_OPTIONAL
+        Z_PARAM_ZVAL(closure)
+    ZEND_PARSE_PARAMETERS_END();
+
+    if (output_pattern_len == 0)
+    {
+        return;
+    }
+
+    zend_update_static_property_string(response_ce, "output_pattern", strlen("output_pattern"), output_pattern);
+    zend_update_static_property(response_ce, "closure", strlen("closure"), closure);
+}
+
 zend_function_entry response_methods[] = {
 	PHP_ME(response, __construct,         NULL,     ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(response, output,         NULL,     ZEND_ACC_PUBLIC)
+	PHP_ME(response, setOutputPattern, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 
 	{NULL, NULL, NULL}
 };
@@ -61,6 +83,13 @@ MYAPI_STARTUP_FUNCTION(response)
     response_ce = zend_register_internal_class(&ce);
 
     zend_declare_property_null(response_ce, "data", strlen("data"), ZEND_ACC_PRIVATE);
+    zend_declare_property_null(response_ce, "error_msg", strlen("error_msg"), ZEND_ACC_PRIVATE | ZEND_ACC_STATIC);
+    zend_declare_property_null(response_ce, "error_code", strlen("error_code"), ZEND_ACC_PRIVATE | ZEND_ACC_STATIC);
+    zend_declare_property_null(response_ce, "result", strlen("result"), ZEND_ACC_PRIVATE | ZEND_ACC_STATIC);
+    zend_declare_property_null(response_ce, "is_set_header", strlen("is_set_header"), ZEND_ACC_PRIVATE | ZEND_ACC_STATIC);
+    zend_declare_property_string(response_ce, "output_pattern", strlen("output_pattern"), "json", ZEND_ACC_PRIVATE | ZEND_ACC_STATIC);
+    zend_declare_property_null(response_ce, "closure", strlen("closure"), ZEND_ACC_PRIVATE | ZEND_ACC_STATIC);
+
 
     return SUCCESS;
 }

@@ -30,10 +30,10 @@ void Model::init()
 
         if (dbConfig)
         {
-            std::shared_ptr<zval> dsnPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(dbConfig.get()), "dsn", false);
-            std::shared_ptr<zval> userPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(dbConfig.get()), "user", false);
-            std::shared_ptr<zval> passwordPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(dbConfig.get()), "password", false);
-            std::shared_ptr<zval> optionsPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(dbConfig.get()), "options", false);
+            zval* dsnPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(dbConfig.get()), "dsn");
+            zval* userPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(dbConfig.get()), "user");
+            zval* passwordPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(dbConfig.get()), "password");
+            zval* optionsPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(dbConfig.get()), "options");
 
             if (!dsnPtr || !userPtr || !passwordPtr || !optionsPtr)
             {
@@ -188,12 +188,33 @@ int Model::rowCount(zval*stmt)
     return Z_LVAL_P(ret.get());
 }
 
-bool Model::add(std::string tableName, zval *placeholder, zval *placeholderData)
+bool Model::add(std::string tableName, zval *data)
 {
     SqlParser parser;
     parser.setPlaceholder(true);
     parser.table(tableName);
-    parser.keyValues(placeholder);
+
+    zval placeholder;
+    zval placeholderData;
+    array_init(&placeholder);
+    array_init(&placeholderData);
+
+    std::shared_ptr<zval> placeholderPtr(&placeholder, [](zval *ptr){
+        zval_ptr_dtor(ptr);
+    });
+
+    std::shared_ptr<zval> placeholderDataPtr(&placeholderData, [](zval *ptr){
+        zval_ptr_dtor(ptr);
+    });
+
+    bool isSuccess = this->placeHolderKeyValues(data, &placeholder, &placeholderData);
+
+    if (!isSuccess)
+    {
+        return false;
+    }
+
+    parser.keyValues(&placeholder);
 
     std::string sql = parser.getInsertSql();
 
@@ -204,7 +225,7 @@ bool Model::add(std::string tableName, zval *placeholder, zval *placeholderData)
         return false;
     }
 
-    if (!this->execute(stmt_ptr.get(), placeholderData))
+    if (!this->execute(stmt_ptr.get(), &placeholderData))
     {
         return false;
     }
@@ -212,13 +233,60 @@ bool Model::add(std::string tableName, zval *placeholder, zval *placeholderData)
     return true;
 }
 
-bool Model::update(std::string tableName, zval *keyValues, zval *where, zval *placeholderData)
+bool Model::update(std::string tableName, zval *data, zval *where)
 {
     SqlParser parser;
     parser.setPlaceholder(true);
     parser.table(tableName);
-    parser.keyValues(keyValues);
-    parser.where(where);
+
+    zval placeholder;
+    zval placeholderData;
+    zval placeholderWhere;
+    array_init(&placeholder);
+    array_init(&placeholderData);
+
+    std::shared_ptr<zval> placeholderPtr(&placeholder, [](zval *ptr){
+        zval_ptr_dtor(ptr);
+    });
+
+    std::shared_ptr<zval> placeholderDataPtr(&placeholderData, [](zval *ptr){
+        zval_ptr_dtor(ptr);
+    });
+
+    std::shared_ptr<zval> placeholderWherePtr(&placeholderWhere, [](zval *ptr){
+        if (Z_TYPE_P(ptr) == IS_ARRAY)
+        {
+            zval_ptr_dtor(ptr);
+        }
+    });
+
+    bool isSuccess = this->placeHolderKeyValues(data, &placeholder, &placeholderData);
+
+    if (!isSuccess)
+    {
+        return false;
+    }
+
+    parser.keyValues(&placeholder);
+
+    if (Z_TYPE_P(where) == IS_ARRAY)
+    {
+        array_init(&placeholderWhere);
+
+        bool isSuccess = this->placeHolderWhere(where, &placeholderWhere, &placeholderData);
+
+        if (!isSuccess)
+        {
+            return false;
+        }
+
+        parser.setPlaceholder(true);
+        parser.where(&placeholderWhere);
+    }
+    else
+    {
+        parser.where(where);
+    }
 
     std::string sql = parser.getUpdateSql();
 
@@ -229,7 +297,7 @@ bool Model::update(std::string tableName, zval *keyValues, zval *where, zval *pl
         return false;
     }
 
-    if (!this->execute(stmt_ptr.get(), placeholderData))
+    if (!this->execute(stmt_ptr.get(), &placeholderData))
     {
         return false;
     }
@@ -244,9 +312,44 @@ bool Model::del(std::string tableName, zval *where)
     SqlParser parser;
     parser.table(tableName);
 
+    zval placeholder;
+    zval placeholderData;
+
+    std::shared_ptr<zval> placeholderPtr(&placeholder, [](zval *ptr){
+        if (Z_TYPE_P(ptr) == IS_ARRAY)
+        {
+            zval_ptr_dtor(ptr);
+        }
+    });
+
+    std::shared_ptr<zval> placeholderDataPtr(&placeholderData, [](zval *ptr){
+        if (Z_TYPE_P(ptr) == IS_ARRAY)
+        {
+            zval_ptr_dtor(ptr);
+        }
+    });
+
     if (where)
     {
-        parser.where(where);
+        if (Z_TYPE_P(where) == IS_ARRAY)
+        {
+            array_init(&placeholder);
+            array_init(&placeholderData);
+
+            bool isSuccess = this->placeHolderWhere(where, &placeholder, &placeholderData);
+
+            if (!isSuccess)
+            {
+                return false;
+            }
+
+            parser.setPlaceholder(true);
+            parser.where(&placeholder);
+        }
+        else
+        {
+            parser.where(where);
+        }
     }
     else
     {
@@ -262,7 +365,7 @@ bool Model::del(std::string tableName, zval *where)
         return false;
     }
 
-    if (!this->execute(stmt_ptr.get(), NULL))
+    if (!this->execute(stmt_ptr.get(), (Z_TYPE(placeholderData) == IS_ARRAY ? &placeholderData : NULL)))
     {
         return false;
     }
@@ -276,10 +379,44 @@ std::shared_ptr<zval> Model::get(std::string tableName, zval *where, zval *field
 {
     SqlParser parser;
     parser.table(tableName);
+    zval placeholder;
+    zval placeholderData;
+
+    std::shared_ptr<zval> placeholderPtr(&placeholder, [](zval *ptr){
+        if (Z_TYPE_P(ptr) == IS_ARRAY)
+        {
+            zval_ptr_dtor(ptr);
+        }
+    });
+
+    std::shared_ptr<zval> placeholderDataPtr(&placeholderData, [](zval *ptr){
+        if (Z_TYPE_P(ptr) == IS_ARRAY)
+        {
+            zval_ptr_dtor(ptr);
+        }
+    });
 
     if (where && Z_TYPE_P(where) != IS_NULL)
     {
-        parser.where(where);
+        if (Z_TYPE_P(where) == IS_ARRAY)
+        {
+            array_init(&placeholder);
+            array_init(&placeholderData);
+
+            bool isSuccess = this->placeHolderWhere(where, &placeholder, &placeholderData);
+
+            if (!isSuccess)
+            {
+                return std::shared_ptr<zval>();
+            }
+
+            parser.setPlaceholder(true);
+            parser.where(&placeholder);
+        }
+        else
+        {
+            parser.where(where);
+        }
     }
 
     if (field && Z_TYPE_P(field) != IS_NULL)
@@ -311,7 +448,7 @@ std::shared_ptr<zval> Model::get(std::string tableName, zval *where, zval *field
         return std::shared_ptr<zval>();
     }
 
-    if (!this->execute(stmt_ptr.get(), NULL))
+    if (!this->execute(stmt_ptr.get(), (Z_TYPE(placeholderData) == IS_ARRAY ? &placeholderData : NULL)))
     {
         return std::shared_ptr<zval>();
     }
@@ -343,4 +480,102 @@ Model Model::getInstance()
     static Model model;
 
     return model;
+}
+
+bool Model::placeHolderKeyValues(zval *data, zval *placeholderKeyValues, zval *placeholderData)
+{
+    zend_string *key;
+    zval *value;
+
+    ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(data), key, value){
+        if (key == NULL || (Z_TYPE_P(value) < IS_LONG || Z_TYPE_P(value) > IS_STRING))
+        {
+            return false;
+        }
+
+        std::string ph_str = std::string(":") + ZSTR_VAL(key);
+        add_assoc_string(placeholderKeyValues, ZSTR_VAL(key), ph_str.c_str());
+
+        switch (Z_TYPE_P(value))
+        {
+            case IS_LONG:
+                add_assoc_long(placeholderData, ph_str.c_str(), Z_LVAL_P(value));
+                break;
+            case IS_DOUBLE:
+                add_assoc_double(placeholderData, ph_str.c_str(), Z_DVAL_P(value));
+                break;
+            case IS_STRING:
+                add_assoc_string(placeholderData, ph_str.c_str(), Z_STRVAL_P(value));
+                break;
+        }
+
+    }ZEND_HASH_FOREACH_END();
+
+    return true;
+}
+
+bool Model::placeHolderWhere(zval *where, zval *placeholderWhere, zval* placeholderData)
+{
+    if (!where || Z_TYPE_P(where) != IS_ARRAY)
+    {
+        return false;
+    }
+
+    zend_string *key;
+    zval *value;
+
+    ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(where), key, value){
+        if (key == NULL || (Z_TYPE_P(value) < IS_LONG || Z_TYPE_P(value) > IS_ARRAY))
+        {
+            return false;
+        }
+
+        std::string ph_str;
+        if (Z_TYPE_P(value) != IS_ARRAY)
+        {
+            ph_str = std::string(":") + ZSTR_VAL(key);
+            add_assoc_string(placeholderWhere, ZSTR_VAL(key), ph_str.c_str());
+        }
+
+        switch (Z_TYPE_P(value))
+        {
+            case IS_LONG:
+                add_assoc_long(placeholderData, ph_str.c_str(), Z_LVAL_P(value));
+                break;
+            case IS_DOUBLE:
+                add_assoc_double(placeholderData, ph_str.c_str(), Z_DVAL_P(value));
+                break;
+            case IS_STRING:
+                add_assoc_string(placeholderData, ph_str.c_str(), Z_STRVAL_P(value));
+                break;
+            case IS_ARRAY:
+                zval *v;
+                zval inArray;
+                array_init(&inArray);
+
+                ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(value), v)
+                    if (Z_TYPE_P(v) < IS_LONG || Z_TYPE_P(v) > IS_STRING)
+                    {
+                        return false;
+                    }
+
+                    if (Z_TYPE_P(v) == IS_STRING)
+                    {
+                        std::string tmp_str = std::string(":") + Z_STRVAL_P(v);
+                        add_next_index_string(&inArray, tmp_str.c_str());
+                        add_assoc_string(placeholderData, tmp_str.c_str(), Z_STRVAL_P(v));
+                    }
+                    else
+                    {
+                        add_next_index_zval(&inArray, v);
+                    }
+                ZEND_HASH_FOREACH_END();
+
+                add_assoc_zval(placeholderWhere, ZSTR_VAL(key), &inArray);
+                break;
+        }
+
+    }ZEND_HASH_FOREACH_END();
+
+    return true;
 }

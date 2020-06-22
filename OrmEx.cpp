@@ -34,23 +34,19 @@ bool Orm::save(zval *obj)
         return false;
     }
 
-    zval placeholder;
-    zval placeholder_data;
-    array_init(&placeholder);
-    array_init(&placeholder_data);
+    zval data;
+    array_init(&data);
 
-    bool initRet = this->initPlaceholder(obj, &placeholder, &placeholder_data);
+    bool initRet = this->initData(obj, &data, NULL);
 
     if (!initRet)
     {
-        zval_ptr_dtor(&placeholder);
-        zval_ptr_dtor(&placeholder_data);
+        zval_ptr_dtor(&data);
         return false;
     }
 
-    bool ret = Model::getInstance().add(tableName, &placeholder, &placeholder_data);
-    zval_ptr_dtor(&placeholder);
-    zval_ptr_dtor(&placeholder_data);
+    bool ret = Model::getInstance().add(tableName, &data);
+    zval_ptr_dtor(&data);
 
     return ret;
 }
@@ -65,26 +61,22 @@ bool Orm::update(zval *obj)
         return false;
     }
 
-    zval placeholder;
-    zval placeholder_data;
+    zval data;
     zval where;
-    array_init(&placeholder);
-    array_init(&placeholder_data);
+    array_init(&data);
     array_init(&where);
 
-    bool initRet = this->initPlaceholder(obj, &placeholder, &placeholder_data, &where);
+    bool initRet = this->initData(obj, &data, &where);
 
     if (!initRet)
     {
-        zval_ptr_dtor(&placeholder);
-        zval_ptr_dtor(&placeholder_data);
+        zval_ptr_dtor(&data);
         zval_ptr_dtor(&where);
         return false;
     }
 
-    bool ret = Model::getInstance().update(tableName, &placeholder, &where, &placeholder_data);
-    zval_ptr_dtor(&placeholder);
-    zval_ptr_dtor(&placeholder_data);
+    bool ret = Model::getInstance().update(tableName, &data, &where);
+    zval_ptr_dtor(&data);
     zval_ptr_dtor(&where);
 
     return ret;
@@ -156,7 +148,7 @@ bool Orm::del(zval *obj)
     return ret;
 }
 
-bool Orm::initPlaceholder(zval *obj, zval *placeholder, zval *placeholderData, zval *where)
+bool Orm::initData(zval *obj, zval *data, zval *where)
 {
     HashTable * foreachHt = Z_OBJPROP_P(obj);
     zend_class_entry *entry = Z_OBJCE_P(obj);
@@ -198,33 +190,45 @@ bool Orm::initPlaceholder(zval *obj, zval *placeholder, zval *placeholderData, z
             return false;
         }
 
-        std::string ph_str = std::string(":") + key_str;
-
         if (key_str == primaryKey)
         {
             if (where)
             {
-                add_assoc_string(where, key_str.c_str(), ph_str.c_str());
+                if (Z_TYPE_P(value) == IS_STRING)
+                {
+                    add_assoc_string(where, key_str.c_str(), Z_STRVAL_P(value));
+                }
+                else if (Z_TYPE_P(value) == IS_LONG)
+                {
+                    add_assoc_long(where, key_str.c_str(), Z_LVAL_P(value));
+                }
+                else if (Z_TYPE_P(value) == IS_DOUBLE)
+                {
+                    add_assoc_double(where, key_str.c_str(), Z_DVAL_P(value));
+                }
+                else
+                {
+                    add_assoc_zval(where, key_str.c_str(), value);
+                }
             }
         }
         else
         {
-            add_assoc_string(placeholder, key_str.c_str(), ph_str.c_str());
-        }
-
-        if (key_str != primaryKey || (key_str == primaryKey && where))
-        {
-            switch (Z_TYPE_P(value))
+            if (Z_TYPE_P(value) == IS_STRING)
             {
-                case IS_LONG:
-                    add_assoc_long(placeholderData, ph_str.c_str(), Z_LVAL_P(value));
-                    break;
-                case IS_DOUBLE:
-                    add_assoc_double(placeholderData, ph_str.c_str(), Z_DVAL_P(value));
-                    break;
-                case IS_STRING:
-                    add_assoc_string(placeholderData, ph_str.c_str(), Z_STRVAL_P(value));
-                    break;
+                add_assoc_string(data, key_str.c_str(), Z_STRVAL_P(value));
+            }
+            else if (Z_TYPE_P(value) == IS_LONG)
+            {
+                add_assoc_long(data, key_str.c_str(), Z_LVAL_P(value));
+            }
+            else if (Z_TYPE_P(value) == IS_DOUBLE)
+            {
+                add_assoc_double(data, key_str.c_str(), Z_DVAL_P(value));
+            }
+            else
+            {
+                add_assoc_zval(data, key_str.c_str(), value);
             }
         }
 

@@ -1,3 +1,15 @@
+extern "C" {
+    #ifdef HAVE_CONFIG_H
+    # include "config.h"
+    #endif
+
+    #include "php.h"
+    #include "ext/standard/info.h"
+    #include "ext/standard/php_var.h"
+    #include "ext/json/php_json.h"
+    #include "zend_smart_str.h"
+}
+#include "php_myapi.h"
 #include "MyApiTool.h"
 #include "zend_exceptions.h"
 
@@ -39,7 +51,7 @@ MyApiTool::MyApiTool(std::string className)
 
 std::shared_ptr<zval> MyApiTool::callMethod(const char *function_name, int params_count, zval params[])
 {
-    if (Z_TYPE(this->object) == IS_UNDEF)
+    if (Z_TYPE(this->object) != IS_OBJECT)
     {
         return std::shared_ptr<zval>();
     }
@@ -66,7 +78,7 @@ std::shared_ptr<zval> MyApiTool::callFunction(const char *function_name, int par
 
     if (FAILURE == call_result)
     {
-        php_error_docref(NULL, E_WARNING, "FUNCTION NOT EXISTING");
+        php_error_docref(NULL, E_WARNING, MYAPI_ERR_MSG(1), function_name);
         ptr.reset();
     }
 
@@ -99,7 +111,7 @@ std::shared_ptr<zval> MyApiTool::callMethod(const char* class_name, const char *
 
     if (FAILURE == call_result)
     {
-        php_error_docref(NULL, E_WARNING, "FUNCTION NOT EXISTING");
+        php_error_docref(NULL, E_WARNING, MYAPI_ERR_MSG(1), function_name);
         ptr.reset();
     }
 
@@ -126,9 +138,7 @@ std::shared_ptr<zval> MyApiTool::callMethodWithObject(zval& obj, const char *fun
     if (FAILURE == call_result)
     {
         ptr.reset();
-        std::string errorMsg = std::string(function_name) + std::string(" FUNCTION NOT EXISTING");
-        const char *errMsg = errorMsg.c_str();
-        php_error_docref(NULL, E_WARNING, "%s", errMsg);
+        php_error_docref(NULL, E_WARNING, MYAPI_ERR_MSG(1), function_name);
     }
 
     return ptr;
@@ -243,78 +253,53 @@ std::shared_ptr<zval> MyApiTool::getContant(const char* str, zend_class_entry *e
     return ptr;
 }
 
-std::shared_ptr<zval> MyApiTool::getZvalByHashTable(HashTable *ht, const char* str, bool isDelete)
+zval* MyApiTool::getZvalByHashTable(HashTable *ht, const char* str)
 {
-    std::shared_ptr<zend_string> key = MyApiTool::getZendString(str);
+    zval *val = zend_hash_str_find(ht, str, strlen(str));
 
-    return MyApiTool::getZvalByHashTable(ht, key.get(), isDelete);
+    return val;
 }
 
-std::shared_ptr<zval> MyApiTool::getZvalByHashTable(HashTable *ht, zend_string* str, bool isDelete)
+zval* MyApiTool::getZvalByHashTable(HashTable *ht, zend_string* str)
 {
     zval *val = zend_hash_find(ht, str);
 
-    if (val == NULL)
-    {
-        return std::shared_ptr<zval>();
-    }
-
-    std::shared_ptr<zval> retPtr(val, [isDelete](zval *valPtr){
-        if (isDelete)
-        {
-            zval_ptr_dtor(valPtr);
-        }
-    });
-
-    return retPtr;
+    return val;
 }
 
-std::shared_ptr<zval> MyApiTool::getZvalByHashTable(HashTable *ht, zend_long index, bool isDelete)
+zval* MyApiTool::getZvalByHashTable(HashTable *ht, zend_long index)
 {
     zval *val = zend_hash_index_find(ht, index);
 
-    if (val == NULL)
-    {
-        return std::shared_ptr<zval>();
-    }
-
-    std::shared_ptr<zval> retPtr(val, [isDelete](zval *valPtr){
-        if (isDelete)
-        {
-            zval_ptr_dtor(valPtr);
-        }
-    });
-
-    return retPtr;
+    return val;
 }
 
-std::shared_ptr<zval> MyApiTool::getZvalByHashTableEx(HashTable *ht, const char* key, bool isDelete)
+zval* MyApiTool::getZvalByHashTableEx(HashTable *ht, const char* key)
 {
     char buf[100];
     strcpy(buf, key);
     char *k = strtok(buf, ".");
     HashTable *ht_c = ht;
-    std::shared_ptr<zval> retPtr;
+    zval* retPtr;
 
     while (k != NULL)
     {
         if (ht_c == NULL)
         {
-            retPtr.reset();
+            retPtr = NULL;
             break;
         }
 
-        retPtr = MyApiTool::getZvalByHashTable(ht_c, k, isDelete);
+        retPtr = MyApiTool::getZvalByHashTable(ht_c, k);
 
         if (!retPtr)
         {
-            retPtr.reset();
             break;
         }
 
-        if (retPtr && Z_TYPE_P(retPtr.get()) == IS_ARRAY)
+        if (retPtr && Z_TYPE_P(retPtr) == IS_ARRAY)
         {
-            ht_c = Z_ARRVAL_P(retPtr.get());
+            ht_c = Z_ARRVAL_P(retPtr);
         }
         else
         {

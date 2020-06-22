@@ -7,29 +7,43 @@ extern "C" {
     #include "ext/standard/info.h"
     #include "ext/standard/php_var.h"
     #include "ext/json/php_json.h"
+    #include "SAPI.h"
+    #include "ext/standard/head.h"
     #include "zend_smart_str.h"
+    #include "zend_closures.h"
 }
 #include "php_myapi.h"
 #include "MyApiTool.h"
 #include "ResponseEx.h"
 
-std::string Response::getErrorResult(std::string errorMsg, int errorCode)
+extern zend_class_entry *response_ce;
+
+bool Response::isError()
 {
-    std::string result;
-    zval arr;
-    array_init(&arr);
-    add_assoc_string(&arr, "error_msg", errorMsg.c_str());
-    add_assoc_long(&arr, "error_code", errorCode);
+    zval *errorCode = zend_read_static_property(response_ce, "error_code", strlen("error_code"), 0);
 
-    smart_str buf = {0};
-    php_json_encode(&buf, &arr, 0);
-    smart_str_appendc(&buf, '\0');
+    return Z_TYPE_P(errorCode) == IS_NULL;
+}
 
-    result = ZSTR_VAL(buf.s);
-    smart_str_free(&buf);
-    zval_ptr_dtor(&arr);
+void Response::header(char* line, bool rep, zend_long code)
+{
+    sapi_header_line ctr = {0};
+    ctr.line = line;
+    ctr.line_len = strlen(line);
+    ctr.response_code = code;
+	sapi_header_op(rep ? sapi_header_op_enum::SAPI_HEADER_REPLACE: (sapi_header_op_enum)SAPI_HEADER_ADD, &ctr);
+}
 
-    return result;
+void Response::setErrorResult(std::string errorMsg, int errorcode)
+{
+    zend_update_static_property_string(response_ce, "error_msg", strlen("error_msg"), errorMsg.c_str());
+    zend_update_static_property_long(response_ce, "error_code", strlen("error_code"), errorcode);
+}
+
+void Response::setErrorResult(zval *errorMsg, int errorcode)
+{
+    zend_update_static_property(response_ce, "error_msg", strlen("error_msg"), errorMsg);
+    zend_update_static_property_long(response_ce, "error_code", strlen("error_code"), errorcode);
 }
 
 std::string Response::getJsonString(zval *val)
@@ -49,9 +63,189 @@ std::string Response::getJsonString(zval *val)
     return result;
 }
 
+std::string Response::getXmlString(zval *data)
+{
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>";
+    xml += "<xml>";
+
+    if (Z_TYPE_P(data) == IS_ARRAY)
+    {
+        xml += getXml(data);
+    }
+
+    xml += "</xml>";
+
+    return xml;
+}
+
+std::string Response::getXml(zval *data)
+{
+    zend_string *key;
+    zval *val;
+    std::string xml;
+    zend_long num;
+
+    ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL_P(data), num, key, val)
+        if (key == NULL)
+        {
+            xml += "<list id='" + std::to_string((int)num) + "'>";
+        }
+        else
+        {
+            xml += std::string("<") + ZSTR_VAL(key) + ">";
+        }
+
+        if (Z_TYPE_P(val) == IS_ARRAY)
+        {
+            xml += getXml(val);
+        }
+        else
+        {
+            switch (Z_TYPE_P(val))
+            {
+                case IS_STRING:
+                    xml += std::string(Z_STRVAL_P(val));
+                    break;
+                case IS_LONG:
+                    xml += std::to_string(Z_LVAL_P(val));
+                    break;
+                case IS_DOUBLE:
+                    xml += std::to_string(Z_DVAL_P(val));
+                    break;
+                case IS_TRUE:
+                    xml += "true";
+                    break;
+                case IS_FALSE:
+                    xml += "false";
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (key == NULL)
+        {
+            xml += "</list>";
+        }
+        else
+        {
+            xml += std::string("</") + ZSTR_VAL(key) + ">";
+        }
+
+    ZEND_HASH_FOREACH_END();
+
+    return xml;
+}
+
+zval* Response::getResult()
+{
+    zval *ret = zend_read_static_property(response_ce, "result", strlen("result"), 0);
+
+    return ret;
+}
+
+void Response::setResult(zval *val)
+{
+    zend_update_static_property(response_ce, "result", strlen("result"), val);
+}
+
 Response Response::getInstance()
 {
     static Response response;
 
     return response;
+}
+
+std::string Response::output()
+{
+    zval *isSetHeader = zend_read_static_property(response_ce, "is_set_header", strlen("is_set_header"), 0);
+
+    if (Z_TYPE_P(isSetHeader) == IS_NULL)
+    {
+        //this->header("Content-type:text/json");
+    }
+
+    zval *errorCode = zend_read_static_property(response_ce, "error_code", strlen("error_code"), 0);
+    zval ret;
+    array_init(&ret);
+
+    if (Z_TYPE_P(errorCode) != IS_NULL)
+    {
+        //TODO
+        zval *errorMsg = zend_read_static_property(response_ce, "error_msg", strlen("error_msg"), 0);
+
+        add_assoc_zval(&ret, "code", errorCode);
+
+        if (Z_TYPE_P(errorMsg) == IS_STRING)
+        {
+            add_assoc_string(&ret, "error_msg", Z_STRVAL_P(errorMsg));
+            //add_assoc_zval(&ret, "error_msg", errorMsg);
+        }
+        else
+        {
+            add_assoc_zval(&ret, "err_msg", errorMsg);
+        }
+
+    }
+    else
+    {
+        zval *result = zend_read_static_property(response_ce, "result", strlen("result"), 0);
+        add_assoc_zval(&ret, "result", result);
+        add_assoc_long(&ret, "code", 0);
+    }
+
+    zval *outputPattern = zend_read_static_property(response_ce, "output_pattern", strlen("output_pattern"), 0);
+
+    if (Z_TYPE_P(outputPattern) != IS_STRING)
+    {
+        zval_ptr_dtor(&ret);
+        return "";
+    }
+
+    std::string pattern = Z_STRVAL_P(outputPattern);
+    std::string output;
+
+    if (pattern == "json")
+    {
+        output = getJsonString(&ret);
+    }
+    else if (pattern == "xml")
+    {
+        output = getXmlString(&ret);
+    }
+    else if (pattern == "custom")
+    {
+        zval *closure = zend_read_static_property(response_ce, "closure", strlen("closure"), 0);
+        zend_function *closureFun = (zend_function*) zend_get_closure_method_def(closure);
+
+        zval result;
+        zval params[] = {ret};
+        zend_fcall_info fi;
+        fi.object = NULL;
+        fi.params = params;
+        fi.param_count = 1;
+        fi.retval = &result;
+        fi.size = sizeof(zend_fcall_info);
+
+        zend_fcall_info_cache fci;
+        fci.called_scope = NULL;
+        fci.calling_scope = NULL;
+        fci.function_handler = closureFun;
+        fci.object = NULL;
+
+        int isSuccess = zend_call_function(&fi, &fci);
+
+        if (isSuccess == FAILURE || Z_TYPE(result) != IS_STRING)
+        {
+            output = "";
+        }
+        else
+        {
+            output = Z_STRVAL(result);
+        }
+    }
+
+    zval_ptr_dtor(&ret);
+
+    return output;
 }

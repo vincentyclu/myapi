@@ -13,6 +13,7 @@ class Validator
 {
 public:
     Validator();
+
     bool checkInt(zval *data);
     bool checkDouble(zval *data);
     bool checkString(zval *data);
@@ -34,8 +35,7 @@ public:
     int getErrorCode();
     void throwError(std::string msg, int code);
 
-    static zval doValidator(zval *laws, zval *getData, zval *postData, zval *fileData, zval *cliData,  bool& isSuccess);
-
+    static bool doValidator(zval *laws, zval *getData, zval *postData, zval *fileData, zval *cliData, zval *result);
 private:
     zval *law = NULL;
     zval *getData = NULL;

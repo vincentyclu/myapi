@@ -235,14 +235,14 @@ PHP_METHOD(orm, __call)
         fun_name = fun_name.substr(3);
         fun_name[0] = std::tolower(fun_name[0]);
 
-        std::shared_ptr<zval> ptr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(param), (zend_long) 0, false);
+        zval* ptr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(param), (zend_long) 0);
 
         if (!ptr)
         {
             RETURN_NULL();
         }
 
-        zend_update_property(orm_ce, getThis(), fun_name.c_str(), fun_name.length(), ptr.get());
+        zend_update_property(orm_ce, getThis(), fun_name.c_str(), fun_name.length(), ptr);
     }
     else
     {

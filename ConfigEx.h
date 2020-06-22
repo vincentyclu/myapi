@@ -8,6 +8,9 @@ class Config
 {
 public:
     std::shared_ptr<zval> get(std::string file, bool isEnv = false);
+    zval* getConfig(std::string file, std::string key, bool isEnv=false);
+    std::string getLang(std::string key, std::string lang = "");
+    std::string getErrorMsg(int code);
     static Config getInstance();
 };
 

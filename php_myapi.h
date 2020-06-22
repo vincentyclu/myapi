@@ -1,5 +1,6 @@
 /* myapi extension for PHP */
 #include <string>
+#include "error_code.h"
 
 #ifndef PHP_MYAPI_H
 # define PHP_MYAPI_H
@@ -24,6 +25,13 @@
 #define RESPONSE_CLASS "\\myapi\\Response"
 #define RESPONSE_OUTPUT "output"
 
+/* For compatibility with older PHP versions */
+#ifndef ZEND_PARSE_PARAMETERS_NONE
+#define ZEND_PARSE_PARAMETERS_NONE() \
+	ZEND_PARSE_PARAMETERS_START(0, 0) \
+	ZEND_PARSE_PARAMETERS_END()
+#endif
+
 # if defined(ZTS) && defined(COMPILE_DL_MYAPI)
 ZEND_TSRMLS_CACHE_EXTERN()
 # endif
@@ -37,12 +45,12 @@ extern zend_module_entry myapi_module_entry;
 #endif
 
 ZEND_BEGIN_MODULE_GLOBALS(myapi)
-    char* test_str;
-
+    //char* test_str;
 	bool enable_error_handler;
 	bool enable_exception_handler;
 	bool enable_multi_enviroment;
 	char* default_enviroment;
+	char* language;
 ZEND_END_MODULE_GLOBALS(myapi)
 
 ZEND_EXTERN_MODULE_GLOBALS(myapi);

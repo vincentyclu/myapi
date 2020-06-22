@@ -11,7 +11,7 @@ extern "C" {
 #include "myapi_config.h"
 #include "MyApiTool.h"
 #include "ApiEx.h"
-#include <vector>
+#include "ConfigEx.h"
 #include <string>
 
 zend_class_entry* config_ce;
@@ -19,82 +19,78 @@ zend_class_entry* config_ce;
 
 PHP_METHOD(config, __construct)
 {
-    zval *file_path;
-    zend_bool use_env = false;
 
-    ZEND_PARSE_PARAMETERS_START(1, 2)
-        Z_PARAM_ZVAL(file_path)
-        Z_PARAM_OPTIONAL
-        Z_PARAM_BOOL(use_env)
-    ZEND_PARSE_PARAMETERS_END();
-
-    std::string api_path = Api::getInstance().getApiPath();
-    std::string env = Api::getInstance().getEnv();
-
-    if (Z_TYPE_P(file_path) != IS_STRING || api_path == "")
-    {
-        return;
-    }
-
-    std::string filePath;
-
-    if (use_env)
-    {
-        filePath = api_path + "/config/" + env + "/" + std::string(Z_STRVAL_P(file_path)) + std::string(".php");
-    }
-    else
-    {
-        filePath = api_path + "/config/" + std::string(Z_STRVAL_P(file_path)) + std::string(".php");
-    }
-
-    std::shared_ptr<zval> retPtr = Api::getInstance().import(filePath);
-
-    if (Z_TYPE_P(retPtr.get()) != IS_ARRAY)
-    {
-        MyApiTool::throwException("config file error", 10);
-        return;
-    }
-
-    zend_update_property(config_ce, getThis(), "data", strlen("data"), retPtr.get());
 }
 
 PHP_METHOD(config, get)
 {
-    zval *rv;
-    zval *val = zend_read_property(config_ce, getThis(), "data", strlen("data"), 0, rv);
-
-    char *key;
-    size_t len;
-    ZEND_PARSE_PARAMETERS_START(1, 1)
-        Z_PARAM_STRING(key, len)
+    char *file;
+    size_t file_len;
+    char *key = NULL;
+    size_t key_len;
+    zend_bool is_env = true;
+    ZEND_PARSE_PARAMETERS_START(1, 3)
+        Z_PARAM_STRING(file, file_len)
+        Z_PARAM_OPTIONAL
+        Z_PARAM_STRING(key, key_len)
+        Z_PARAM_BOOL(is_env)
     ZEND_PARSE_PARAMETERS_END();
 
-    std::shared_ptr<zval> retPtr = MyApiTool::getZvalByHashTableEx(Z_ARRVAL_P(val), key, false);
+    std::string k = (key == NULL) ? "" : key;
+    zval *data = Config::getInstance().getConfig(file, k, (bool) is_env);
 
-    if (!retPtr)
+    if (!data)
     {
         RETURN_NULL();
     }
 
-    RETURN_ZVAL(retPtr.get(), 1, 0);
+    RETURN_ZVAL(data, 1, 0);
 }
 
-PHP_METHOD(config, getAll)
+PHP_METHOD(config, getObject)
 {
-    zval *val = zend_read_property(config_ce, getThis(), "data", strlen("data"), 0, NULL);
-
-    if (!val)
-    {
-        RETURN_NULL();
-    }
+    zval *val = zend_read_static_property(config_ce, "config_obj", strlen("config_obj"), 0);
 
     RETURN_ZVAL(val, 1, 0);
 }
 
+PHP_METHOD(config, getLang)
+{
+    char *key;
+    size_t key_len;
+    char *lang = NULL;
+    size_t lang_len;
+
+    ZEND_PARSE_PARAMETERS_START(1, 2)
+        Z_PARAM_STRING(key, key_len)
+        Z_PARAM_OPTIONAL
+        Z_PARAM_STRING(lang, lang_len)
+    ZEND_PARSE_PARAMETERS_END();
+
+    std::string result = Config::getInstance().getLang(key, lang ? lang : "");
+
+    RETURN_STRING(result.c_str());
+}
+
+PHP_METHOD(config, getErrorMsg)
+{
+    zend_long code;
+
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+        Z_PARAM_LONG(code)
+    ZEND_PARSE_PARAMETERS_END();
+
+    std::string result = Config::getInstance().getErrorMsg((int) code);
+
+    RETURN_STRING(result.c_str());
+}
+
 zend_function_entry config_methods[] = {
 	PHP_ME(config, __construct,         NULL,     ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
-	PHP_ME(config, get,         NULL,     ZEND_ACC_PUBLIC)
-	PHP_ME(config, getAll,         NULL,     ZEND_ACC_PUBLIC)
+	PHP_ME(config, get,         NULL,     ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+	PHP_ME(config, getObject,         NULL,     ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+	PHP_ME(config, getLang,         NULL,     ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+	PHP_ME(config, getErrorMsg,         NULL,     ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 
 	{NULL, NULL, NULL}
 };
@@ -105,8 +101,7 @@ MYAPI_STARTUP_FUNCTION(config)
     INIT_CLASS_ENTRY(ce, "myapi\\Config", config_methods);
     config_ce = zend_register_internal_class(&ce);
 
-    zend_declare_property_null(config_ce, "data", strlen("data"), ZEND_ACC_PRIVATE);
-    zend_declare_property_null(config_ce, "myapi_data", strlen("myapi_data"), ZEND_ACC_PUBLIC | ZEND_ACC_STATIC);
+    zend_declare_property_null(config_ce, "config_obj", strlen("config_obj"), ZEND_ACC_PRIVATE | ZEND_ACC_STATIC);
 
     return SUCCESS;
 }

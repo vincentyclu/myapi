@@ -41,14 +41,14 @@ bool Log::isWriteLog(std::string level)
         return false;
     }
 
-    std::shared_ptr<zval> logPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(sysPtr.get()), "log_type", false);
+    zval* logPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(sysPtr.get()), "log_type");
 
     if (!logPtr || Z_TYPE(*logPtr) != IS_STRING)
     {
         return false;
     }
 
-    std::string log_level = Z_STRVAL_P(logPtr.get());
+    std::string log_level = Z_STRVAL_P(logPtr);
 
     return this->m[level] >= this->m[log_level];
 }

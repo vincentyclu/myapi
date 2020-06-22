@@ -37,6 +37,7 @@ PHP_METHOD(validator, doCheck)
     zval *file_data = zend_read_property(validator_ce, getThis(), "file_data", strlen("file_data"), 0, NULL);
     zval *cli_data = zend_read_property(validator_ce, getThis(), "cli_data", strlen("cli_data"), 0, NULL);
 
+    /*
     bool is_success;
     zval result = Validator::doValidator(laws, get_data, post_data, file_data, cli_data, is_success);
 
@@ -46,6 +47,7 @@ PHP_METHOD(validator, doCheck)
     }
 
     zval_ptr_dtor(&result);
+    */
 }
 
 PHP_METHOD(validator, getResult)

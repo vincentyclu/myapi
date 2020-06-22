@@ -16,6 +16,7 @@ extern "C" {
 #include "ConfigEx.h"
 #include "zend_hash.h"
 #include <vector>
+#include "ResponseEx.h"
 
 Filter Filter::getInstance()
 {
@@ -34,22 +35,22 @@ std::vector<std::string> Filter::getFilter()
         return filterVector;
     }
 
-    std::shared_ptr<zval> filters = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(sysPtr.get()), "filter", false);
+    zval* filters = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(sysPtr.get()), "filter");
 
-    if (filters && Z_TYPE_P(filters.get()) == IS_ARRAY)
+    if (filters && Z_TYPE_P(filters) == IS_ARRAY)
     {
         zval *val;
-        ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(filters.get()), val)
-            std::shared_ptr<zval> includeRultePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(val), "include_rule", false);
-            std::shared_ptr<zval> excludeRultePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(val), "exclude_rule", false);
+        ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(filters), val)
+            zval* includeRultePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(val), "include_rule");
+            zval* excludeRultePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(val), "exclude_rule");
 
-            if (this->isDoFilter(includeRultePtr.get(), excludeRultePtr.get()))
+            if (this->isDoFilter(includeRultePtr, excludeRultePtr))
             {
-                std::shared_ptr<zval> classNamePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(val), "class_name", false);
+                zval* classNamePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(val), "class_name");
 
-                if (classNamePtr && Z_TYPE_P(classNamePtr.get()) == IS_STRING)
+                if (classNamePtr && Z_TYPE_P(classNamePtr) == IS_STRING)
                 {
-                    filterVector.push_back(std::string(Z_STRVAL_P(classNamePtr.get())));
+                    filterVector.push_back(std::string(Z_STRVAL_P(classNamePtr)));
                 }
             }
         ZEND_HASH_FOREACH_END();
@@ -69,8 +70,7 @@ bool Filter::doBeginFilter()
             MyApiTool filterTool(class_name);
             if (!filterTool.isCallable())
             {
-                std::string errMsg = class_name + " FILTER NOT EXIST";
-                MyApiTool::throwException(errMsg, 10);
+                MYAPI_ERR_RESPONSE(301, class_name.c_str());
                 return false;
             }
 
@@ -99,9 +99,7 @@ bool Filter::doAfterFilter(zval *actionResult)
             MyApiTool filterTool(class_name);
             if (!filterTool.isCallable())
             {
-                std::string errMsg = class_name + " FILTER NOT EXIST";
-                MyApiTool::throwException(errMsg, 10);
-
+                MYAPI_ERR_RESPONSE(301, class_name.c_str());
                 return false;
             }
 

@@ -7,9 +7,19 @@
 class Response
 {
 public:
-    std::string getErrorResult(std::string errorMsg, int errorCode);
+    bool isError();
+    void header(char* line, bool rep = true, zend_long code = 200);
+    void setErrorResult(std::string errorMsg, int errorcode);
+    void setErrorResult(zval *errorMsg, int errorcode);
     std::string getJsonString(zval *val);
+    std::string getXmlString(zval *val);
+    std::string output();
+    zval* getResult();
+    void setResult(zval *val);
     static Response getInstance();
+
+private:
+    std::string getXml(zval *val);
 };
 
 #endif //MYAPI_RESPONSE_EX_H
