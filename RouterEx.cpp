@@ -12,6 +12,7 @@ extern "C" {
 #include "php_myapi.h"
 #include "MyApiTool.h"
 #include "RouterEx.h"
+#include "ApiEx.h"
 
 extern zend_class_entry *router_ce;
 
@@ -56,7 +57,7 @@ std::string Router::getController()
     zval *api = zend_read_static_property(router_ce, "api", strlen("api"), 0);
     zval *module = zend_read_static_property(router_ce, "module", strlen("module"), 0);
 
-    if (!api || !module)
+    if (Z_TYPE_P(api) != IS_STRING || Z_TYPE_P(module) != IS_STRING)
     {
         return "";
     }
@@ -90,9 +91,9 @@ void Router::init()
         zend_update_static_property(router_ce, "php_sapi", strlen("php_sapi"), sapiPtr.get());
     }
 
-    zval* apiPtr;
-    zval* modulePtr;
-    zval* actionPtr;
+    zval* apiPtr = NULL;
+    zval* modulePtr = NULL;
+    zval* actionPtr = NULL;
 
     if (std::string(Z_STRVAL_P(sapiPtr.get())) == "cli")
     {
@@ -110,18 +111,13 @@ void Router::init()
             modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr), (zend_long) 2);
             actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(argvPtr), (zend_long) 3);
         }
-        else
-        {
-            MyApiTool::throwException(MYAPI_ERR(150));
-            return;
-        }
     }
     else
     {
         zval* getPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_GET");
         apiPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr), "api");
-        modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr), "module");
-        actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr), "action");
+        modulePtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr), "m");
+        actionPtr = MyApiTool::getZvalByHashTable(Z_ARRVAL_P(getPtr), "a");
     }
 
     if (!apiPtr)
@@ -137,21 +133,66 @@ void Router::init()
     {
         zend_update_static_property(router_ce, "module", strlen("module"), modulePtr);
     }
-    else
-    {
-        MyApiTool::throwException(MYAPI_ERR(151));
-        return;
-    }
 
     if (actionPtr)
     {
         zend_update_static_property(router_ce, "action", strlen("action"), actionPtr);
     }
+
+    zval* pathInfo = MyApiTool::getZvalByHashTableEx(&EG(symbol_table), "_SERVER.PATH_INFO");
+
+    if (pathInfo && Z_TYPE_P(pathInfo) == IS_STRING && Z_STRLEN_P(pathInfo) > 0)
+    {
+        zend_update_static_property_string(router_ce, "path_info", strlen("path_info"), Z_STRVAL_P(pathInfo));
+    }
     else
     {
-        MyApiTool::throwException(MYAPI_ERR(152));
-        return;
+        std::string pathInfoStr;
+
+        if (apiPtr && modulePtr && actionPtr)
+        {
+            pathInfoStr = std::string("/") + Z_STRVAL_P(apiPtr) + "/" + Z_STRVAL_P(modulePtr) + "/" + Z_STRVAL_P(actionPtr);
+        }
+        else if (!apiPtr && modulePtr && actionPtr)
+        {
+            pathInfoStr = std::string("/") + Z_STRVAL_P(modulePtr) + "/" + Z_STRVAL_P(actionPtr);
+        }
+        else if (!apiPtr && !modulePtr && !actionPtr)
+        {
+            pathInfoStr = "/";
+        }
+        else
+        {
+            pathInfoStr = "/404";
+        }
+
+        zend_update_static_property_string(router_ce, "path_info", strlen("path_info"), pathInfoStr.c_str());
     }
+
+    zval routerObj;
+    object_init_ex(&routerObj, router_ce);
+    MyApiTool::callMethodWithObject(routerObj, "__construct");
+    zend_update_static_property(router_ce, "router_obj", strlen("router_obj"), &routerObj);
+
+    std::string apiPath = Api::getInstance().getApiPath();
+    std::shared_ptr<zval> bootstrapPtr = Api::import(apiPath + "/config/bootstrap.php");
+    zval params[] = {routerObj};
+    MyApiTool::callClosure(bootstrapPtr.get(), 1, params);
+    zval_ptr_dtor(&routerObj);
+}
+
+bool Router::checkRouter()
+{
+    std::string api = getApi();
+    std::string module = getModule();
+    std::string action = getAction();
+
+    if (api == "" || module == "" || action == "")
+    {
+        return false;
+    }
+
+    return true;
 }
 
 Router Router::getInstance()

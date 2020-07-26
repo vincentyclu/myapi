@@ -8,6 +8,7 @@ extern "C" {
     #include "ext/standard/php_var.h"
     #include "ext/json/php_json.h"
     #include "zend_smart_str.h"
+    #include "zend_closures.h"
 }
 #include "php_myapi.h"
 #include "MyApiTool.h"
@@ -78,7 +79,6 @@ std::shared_ptr<zval> MyApiTool::callFunction(const char *function_name, int par
 
     if (FAILURE == call_result)
     {
-        php_error_docref(NULL, E_WARNING, MYAPI_ERR_MSG(1), function_name);
         ptr.reset();
     }
 
@@ -111,7 +111,6 @@ std::shared_ptr<zval> MyApiTool::callMethod(const char* class_name, const char *
 
     if (FAILURE == call_result)
     {
-        php_error_docref(NULL, E_WARNING, MYAPI_ERR_MSG(1), function_name);
         ptr.reset();
     }
 
@@ -138,7 +137,6 @@ std::shared_ptr<zval> MyApiTool::callMethodWithObject(zval& obj, const char *fun
     if (FAILURE == call_result)
     {
         ptr.reset();
-        php_error_docref(NULL, E_WARNING, MYAPI_ERR_MSG(1), function_name);
     }
 
     return ptr;
@@ -325,4 +323,42 @@ void MyApiTool::throwException(const char * msg, zend_long code)
     std::shared_ptr<zend_string> classNamePtr = MyApiTool::getZendString("\\myapi\\Exception");
 
     zend_throw_exception(zend_lookup_class(classNamePtr.get()), msg, code);
+}
+
+std::shared_ptr<zval> MyApiTool::callClosure(zval *closure, int param_count, zval params[])
+{
+    if (!closure || Z_TYPE_P(closure) != IS_OBJECT)
+    {
+        return std::shared_ptr<zval>();
+    }
+
+    zend_function *closureFun = (zend_function*) zend_get_closure_method_def(closure);
+
+    zval *result = (zval *) emalloc(sizeof(zval));
+    std::shared_ptr<zval> resultPtr(result, [](zval *ptr){
+        zval_ptr_dtor(ptr);
+        efree(ptr);
+    });
+
+    zend_fcall_info fi;
+    fi.object = NULL;
+    fi.params = params;
+    fi.param_count = param_count;
+    fi.retval = result;
+    fi.size = sizeof(zend_fcall_info);
+
+    zend_fcall_info_cache fci;
+    fci.called_scope = NULL;
+    fci.calling_scope = NULL;
+    fci.function_handler = closureFun;
+    fci.object = NULL;
+
+    int isSuccess = zend_call_function(&fi, &fci);
+
+    if (isSuccess == FAILURE)
+    {
+        return std::shared_ptr<zval>();
+    }
+
+    return resultPtr;
 }

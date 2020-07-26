@@ -108,9 +108,19 @@ PHP_METHOD(api, autoLoad)
 
 PHP_METHOD(api, run)
 {
+    if (EG(exception))
+    {
+        return;
+    }
+
     ZEND_PARSE_PARAMETERS_NONE();
 
     Api::getInstance().run();
+
+    if (EG(exception))
+    {
+        return;
+    }
 
     std::string output = Response::getInstance().output();
 
@@ -130,11 +140,12 @@ PHP_METHOD(api, exceptionHandler)
     zval ret;
     std::shared_ptr<zval> retPtr = MyApiTool::getZval(&ret, [&ret, &msgPtr, &codePtr](){
         array_init(&ret);
-        add_assoc_zval(&ret, "message", msgPtr.get());
-        add_assoc_zval(&ret, "code", codePtr.get());
+        add_assoc_string(&ret, "exception_message", Z_STRVAL_P(msgPtr.get()));
+        add_assoc_long(&ret, "code", Z_LVAL_P(codePtr.get()));
     });
 
-    Response::getInstance().setErrorResult(&ret, 1);
+    std::string json_str = Response::getInstance().getJsonString(&ret);
+    php_printf("%s", json_str.c_str());
 }
 
 PHP_METHOD(api, errorHandler)
@@ -157,22 +168,16 @@ PHP_METHOD(api, errorHandler)
     ZEND_PARSE_PARAMETERS_END();
 
     zval ret;
-    //zval context;
     array_init(&ret);
-
-    //ZVAL_DUP(&context, error_context_param);
 
     add_assoc_long(&ret, "error_no", error_no_param);
     add_assoc_string(&ret, "err_str", error_str_param);
     add_assoc_string(&ret, "err_file", error_file_param);
     add_assoc_long(&ret, "err_line", error_line_param);
-    //add_assoc_zval(&ret, "err_context", &context);
-    //add_assoc_zval(&ret, "err_context", error_context_param);
 
     Response::getInstance().setErrorResult(&ret, 1);
 
     zval_ptr_dtor(&ret);
-    //zval_ptr_dtor(&context);
 }
 
 PHP_METHOD(api, getApiPath)

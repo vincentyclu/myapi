@@ -13,6 +13,7 @@ extern "C" {
 #include "RouterEx.h"
 #include "ConfigEx.h"
 #include "FilterEx.h"
+#include "ResponseEx.h"
 #include <string>
 
 zend_class_entry* filter_ce;
@@ -30,9 +31,24 @@ PHP_METHOD(filter, __construct)
 
 }
 
+PHP_METHOD(filter, error)
+{
+    char *err_msg;
+    size_t err_msg_len;
+    zend_long code;
+
+    ZEND_PARSE_PARAMETERS_START(2, 2)
+        Z_PARAM_STRING(err_msg, err_msg_len)
+        Z_PARAM_LONG(code)
+    ZEND_PARSE_PARAMETERS_END();
+
+    Response::getInstance().setErrorResult(err_msg, (int) code);
+}
+
 zend_function_entry filter_methods[] = {
 	PHP_ABSTRACT_ME(filter, begin,         NULL)
 	PHP_ABSTRACT_ME(filter, after,         arginfo_myapi_filter_after)
+	PHP_ME(filter, error, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(filter, __construct, NULL, ZEND_ACC_CTOR | ZEND_ACC_PUBLIC)
 
 	{NULL, NULL, NULL}

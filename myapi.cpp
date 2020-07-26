@@ -50,7 +50,7 @@ ZEND_INI_MH(abc)
 }
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("myapi.enable_error_handler",    "1",  PHP_INI_ALL, OnUpdateBool, enable_error_handler, zend_myapi_globals, myapi_globals)
+	STD_PHP_INI_ENTRY("myapi.enable_error_handler",    "0",  PHP_INI_ALL, OnUpdateBool, enable_error_handler, zend_myapi_globals, myapi_globals)
 	STD_PHP_INI_ENTRY("myapi.enable_exception_handler",   "0",  PHP_INI_ALL, OnUpdateBool, enable_exception_handler, zend_myapi_globals, myapi_globals)
 	STD_PHP_INI_ENTRY("myapi.enable_multi_enviroment",   "0",  PHP_INI_ALL, OnUpdateBool, enable_multi_enviroment, zend_myapi_globals, myapi_globals)
 	STD_PHP_INI_ENTRY("myapi.default_enviroment",   "dev",  PHP_INI_ALL, OnUpdateString, default_enviroment, zend_myapi_globals, myapi_globals)
@@ -85,14 +85,7 @@ PHP_FUNCTION(myapi_test1)
 
 PHP_FUNCTION(myapi_test2)
 {
-    zval *val = MyApiTool::getZvalByHashTableEx(&EG(symbol_table), "");
 
-    if (!val)
-    {
-        RETURN_NULL();
-    }
-
-    RETURN_ZVAL(val, 1, 0);
 }
 /* }}}*/
 

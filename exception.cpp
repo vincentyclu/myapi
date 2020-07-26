@@ -17,17 +17,6 @@ extern "C" {
 
 zend_class_entry* exception_ce;
 
-/*
-PHP_METHOD(exception, __construct)
-{
-    php_printf("fun construct");
-    std::vector<zval> v;
-    //zval* obj = getThis();
-    //MyApiTool::callMethodWithObject(*obj, "\\Test::__construct", v);
-}
-*/
-
-
 
 zend_function_entry exception_methods[] = {
 

@@ -40,6 +40,7 @@ public:
     static zval* getZvalByHashTable(HashTable *ht, zend_long index);
     static zval* getZvalByHashTableEx(HashTable *ht, const char* key);
     static std::shared_ptr<zval> getZval(zval *valPtr, std::function<void ()> initFun, bool isDelete = true);
+    static std::shared_ptr<zval> callClosure(zval *closure, int param_count, zval params[]);
 
 
 private:

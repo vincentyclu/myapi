@@ -216,6 +216,11 @@ bool Model::add(std::string tableName, zval *data)
 
     parser.keyValues(&placeholder);
 
+    if (parser.isParseError())
+    {
+        return std::shared_ptr<zval>();
+    }
+
     std::string sql = parser.getInsertSql();
 
     std::shared_ptr<zval> stmt_ptr = this->prepare(sql);
@@ -288,6 +293,11 @@ bool Model::update(std::string tableName, zval *data, zval *where)
         parser.where(where);
     }
 
+    if (parser.isParseError())
+    {
+        return std::shared_ptr<zval>();
+    }
+
     std::string sql = parser.getUpdateSql();
 
     std::shared_ptr<zval> stmt_ptr = this->prepare(sql);
@@ -354,6 +364,11 @@ bool Model::del(std::string tableName, zval *where)
     else
     {
         return false;
+    }
+
+    if (parser.isParseError())
+    {
+        return std::shared_ptr<zval>();
     }
 
     std::string sql = parser.getDeleteSql();
@@ -437,6 +452,11 @@ std::shared_ptr<zval> Model::get(std::string tableName, zval *where, zval *field
     if (having && Z_TYPE_P(having) != IS_NULL)
     {
         parser.having(having);
+    }
+
+    if (parser.isParseError())
+    {
+        return std::shared_ptr<zval>();
     }
 
     std::string sql = parser.getQuerySql();

@@ -46,11 +46,17 @@ PHP_METHOD(controller, getAction)
     RETURN_STRING(action.c_str());
 }
 
+PHP_METHOD(controller, __validator)
+{
+
+}
+
 zend_function_entry controller_methods[] = {
 	PHP_ME(controller, __construct,         NULL,     ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(controller, getApi,         NULL,     ZEND_ACC_PUBLIC)
 	PHP_ME(controller, getModule,         NULL,     ZEND_ACC_PUBLIC)
 	PHP_ME(controller, getAction,         NULL,     ZEND_ACC_PUBLIC)
+	PHP_ME(controller, __validator,         NULL,     ZEND_ACC_PUBLIC)
 
 	{NULL, NULL, NULL}
 };

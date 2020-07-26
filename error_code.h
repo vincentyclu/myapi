@@ -26,6 +26,7 @@
 #define ERROR_CODE_150 "Router error"
 #define ERROR_CODE_151 "Module cannot be empty"
 #define ERROR_CODE_152 "Action cannot be empty"
+#define ERROR_CODE_153 "Module not found"
 
 //controller and validator
 #define ERROR_CODE_200 "The law of validator should be an array"

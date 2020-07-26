@@ -17,6 +17,14 @@ extern zend_class_entry *request_ce;
 
 void Request::init()
 {
+    zend_bool jit_init = PG(auto_globals_jit);
+    if (jit_init)
+    {
+        zend_is_auto_global_str((char *)"_SERVER", strlen("_SERVER"));
+        zend_is_auto_global_str((char *)"_REQUEST", strlen("_REQUEST"));
+        zend_is_auto_global_str((char *)"_ENV", strlen("_ENV"));
+    }
+
     zval* getPtr = MyApiTool::getZvalByHashTable(&EG(symbol_table), "_GET");
 
     if (getPtr)

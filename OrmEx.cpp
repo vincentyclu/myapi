@@ -208,7 +208,7 @@ bool Orm::initData(zval *obj, zval *data, zval *where)
                 }
                 else
                 {
-                    add_assoc_zval(where, key_str.c_str(), value);
+                    return false;
                 }
             }
         }
@@ -228,7 +228,7 @@ bool Orm::initData(zval *obj, zval *data, zval *where)
             }
             else
             {
-                add_assoc_zval(data, key_str.c_str(), value);
+                continue;
             }
         }
 

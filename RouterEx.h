@@ -13,6 +13,7 @@ public:
     std::string getController();
     std::string getVersionClass();
     void init();
+    bool checkRouter();
 
     static Router getInstance();
 };

@@ -66,7 +66,7 @@ std::shared_ptr<zval> Api::import(std::string filename, bool isDelete)
 
     if (!ifs.is_open())
     {
-        php_error_docref(NULL, E_WARNING, MYAPI_ERR_MSG(101), filename.c_str());
+        //php_error_docref(NULL, E_WARNING, MYAPI_ERR_MSG(101), filename.c_str());
         return std::shared_ptr<zval>();
     }
 
@@ -100,16 +100,15 @@ std::shared_ptr<zval> Api::import(std::string filename, bool isDelete)
 
 bool Api::run()
 {
-    bool beginFilterRet = Filter::getInstance().doBeginFilter();
+    std::string controller = Router::getInstance().getController();
+    std::string module = Router::getInstance().getModule();
+    std::string action = Router::getInstance().getAction();
 
-    if (!beginFilterRet)
+    if (module == "")
     {
-        Response::getInstance().setErrorResult(MYAPI_ERR(103));
+        Response::getInstance().setErrorResult(MYAPI_ERR(153));
         return false;
     }
-
-    std::string controller = Router::getInstance().getController();
-    std::string action = Router::getInstance().getAction();
 
     if (action == "")
     {
@@ -120,6 +119,25 @@ bool Api::run()
     if (controller == "")
     {
         Response::getInstance().setErrorResult(MYAPI_ERR(105));
+        return false;
+    }
+
+    bool beginFilterRet = Filter::getInstance().doBeginFilter();
+
+    if (EG(exception))
+    {
+        return false;
+    }
+
+    if (!beginFilterRet)
+    {
+        bool isSetError = Response::getInstance().isError();
+
+        if (!isSetError)
+        {
+            Response::getInstance().setErrorResult(MYAPI_ERR(103));
+        }
+
         return false;
     }
 
@@ -145,6 +163,12 @@ bool Api::run()
 
     if (!controllerRetPtr)
     {
+        Response::getInstance().setErrorResult(MYAPI_ERR(104));
+        return false;
+    }
+
+    if (EG(exception))
+    {
         return false;
     }
 
@@ -168,6 +192,12 @@ bool Api::run()
             {
                 Version::getInstance().setResult(ret);
                 versionObj.callMethod(action.c_str());
+
+                if (EG(exception))
+                {
+                    return false;
+                }
+
                 ret = Version::getInstance().getResult();
             }
 
@@ -177,9 +207,20 @@ bool Api::run()
 
     bool afterFilterRet = Filter::getInstance().doAfterFilter(ret);
 
+    if (EG(exception))
+    {
+        return false;
+    }
+
     if (!afterFilterRet)
     {
-        Response::getInstance().setErrorResult(MYAPI_ERR(107));
+        bool isSetError = Response::getInstance().isError();
+
+        if (!isSetError)
+        {
+            Response::getInstance().setErrorResult(MYAPI_ERR(107));
+        }
+
         return false;
     }
 
@@ -237,8 +278,13 @@ void Api::init(char *path)
 
     MyApiTool::callFunction("spl_autoload_register", 1, params);
 
-    Router::getInstance().init();
     Request::getInstance().init();
+    Router::getInstance().init();
+
+    if (EG(exception))
+    {
+        return;
+    }
 
     if (MYAPI_G(enable_exception_handler))
     {

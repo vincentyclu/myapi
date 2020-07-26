@@ -96,7 +96,7 @@ bool Log::writeLog(std::string msg, std::string level)
                            (t->tm_min > 9 ? std::to_string(t->tm_min) : zeroStr + std::to_string(t->tm_min)) + ":" +
                            (t->tm_sec > 9 ? std::to_string(t->tm_sec) : zeroStr + std::to_string(t->tm_sec));
 
-    std::string recordMsg = timeStr + "[" + level + ")" + "]" + msg + "\n";
+    std::string recordMsg = timeStr + "[" + level + "]" + ":" + msg + "\n";
 
     ofs << recordMsg;
 

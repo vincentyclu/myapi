@@ -15,6 +15,7 @@ extern "C" {
 #include "php_myapi.h"
 #include "MyApiTool.h"
 #include "ResponseEx.h"
+#include "ConfigEx.h"
 
 extern zend_class_entry *response_ce;
 
@@ -22,7 +23,7 @@ bool Response::isError()
 {
     zval *errorCode = zend_read_static_property(response_ce, "error_code", strlen("error_code"), 0);
 
-    return Z_TYPE_P(errorCode) == IS_NULL;
+    return Z_TYPE_P(errorCode) != IS_NULL;
 }
 
 void Response::header(char* line, bool rep, zend_long code)
@@ -171,7 +172,6 @@ std::string Response::output()
 
     if (Z_TYPE_P(errorCode) != IS_NULL)
     {
-        //TODO
         zval *errorMsg = zend_read_static_property(response_ce, "error_msg", strlen("error_msg"), 0);
 
         add_assoc_zval(&ret, "code", errorCode);
@@ -179,10 +179,10 @@ std::string Response::output()
         if (Z_TYPE_P(errorMsg) == IS_STRING)
         {
             add_assoc_string(&ret, "error_msg", Z_STRVAL_P(errorMsg));
-            //add_assoc_zval(&ret, "error_msg", errorMsg);
         }
         else
         {
+            Z_TRY_ADDREF_P(errorMsg);
             add_assoc_zval(&ret, "err_msg", errorMsg);
         }
 
@@ -190,19 +190,20 @@ std::string Response::output()
     else
     {
         zval *result = zend_read_static_property(response_ce, "result", strlen("result"), 0);
+        Z_TRY_ADDREF_P(result);
         add_assoc_zval(&ret, "result", result);
         add_assoc_long(&ret, "code", 0);
     }
 
-    zval *outputPattern = zend_read_static_property(response_ce, "output_pattern", strlen("output_pattern"), 0);
+    zval *outputType = Config::getInstance().getConfig("sys", "output.type", false);
 
-    if (Z_TYPE_P(outputPattern) != IS_STRING)
+    if (Z_TYPE_P(outputType) != IS_STRING)
     {
         zval_ptr_dtor(&ret);
         return "";
     }
 
-    std::string pattern = Z_STRVAL_P(outputPattern);
+    std::string pattern = Z_STRVAL_P(outputType);
     std::string output;
 
     if (pattern == "json")
@@ -215,33 +216,18 @@ std::string Response::output()
     }
     else if (pattern == "custom")
     {
-        zval *closure = zend_read_static_property(response_ce, "closure", strlen("closure"), 0);
-        zend_function *closureFun = (zend_function*) zend_get_closure_method_def(closure);
+        zval *closure = Config::getInstance().getConfig("sys", "output.custom", false);
 
-        zval result;
         zval params[] = {ret};
-        zend_fcall_info fi;
-        fi.object = NULL;
-        fi.params = params;
-        fi.param_count = 1;
-        fi.retval = &result;
-        fi.size = sizeof(zend_fcall_info);
+        std::shared_ptr<zval> resultPtr = MyApiTool::callClosure(closure, 1, params);
 
-        zend_fcall_info_cache fci;
-        fci.called_scope = NULL;
-        fci.calling_scope = NULL;
-        fci.function_handler = closureFun;
-        fci.object = NULL;
-
-        int isSuccess = zend_call_function(&fi, &fci);
-
-        if (isSuccess == FAILURE || Z_TYPE(result) != IS_STRING)
+        if (!resultPtr || Z_TYPE_P(resultPtr.get()) != IS_STRING)
         {
             output = "";
         }
         else
         {
-            output = Z_STRVAL(result);
+            output = Z_STRVAL(*resultPtr);
         }
     }
 
